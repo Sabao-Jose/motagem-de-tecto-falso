@@ -6,5 +6,8 @@
       "description": "Assistente especializado em administração de sistemas, gerenciamento de servidores e infraestrutura de TI.",
       "mode": "primary"
     }
+  },
+  "skills": {
+    "paths": [".opencode/skills"]
   }
 }
