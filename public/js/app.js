@@ -1,0 +1,575 @@
+// ==================== CONFIGURATION ====================
+const API_URL = 'http://localhost:3001/api';
+
+// ==================== STATE MANAGEMENT ====================
+const state = {
+    currentPage: null,
+    clientes: [],
+    servicos: [],
+    portfolio: [],
+    precos: {},
+    configuracoes: {}
+};
+
+// ==================== ROUTER ====================
+class Router {
+    constructor() {
+        this.routes = {};
+        this.init();
+    }
+
+    register(path, handler) {
+        this.routes[path] = handler;
+    }
+
+    async navigate(path) {
+        if (state.currentPage === path) return;
+        state.currentPage = path;
+
+        // Update active sidebar link
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.dataset.page === path) {
+                link.classList.add('active');
+            }
+        });
+
+        // Update URL hash
+        window.location.hash = path;
+
+        // Load page
+        const handler = this.routes[path];
+        if (handler) {
+            showLoading();
+            try {
+                await handler();
+            } catch (error) {
+                console.error('Error loading page:', error);
+                showError('Erro ao carregar página');
+            }
+            hideLoading();
+        } else {
+            console.error('Route not found:', path);
+            this.navigate('home');
+        }
+
+        // Toggle body class for fullscreen pages (login)
+        document.body.classList.toggle('page-login', path === 'login');
+
+        // Close sidebar on mobile after navigation
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar && overlay && window.innerWidth <= 768) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('visible');
+        }
+    }
+
+    init() {
+        // Handle hash changes
+        window.addEventListener('hashchange', () => {
+            const hash = window.location.hash.slice(1) || 'home';
+            if (hash !== state.currentPage) {
+                this.navigate(hash);
+            }
+        });
+
+        // Handle sidebar link clicks
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('.sidebar-link, .sidebar-dropdown-link');
+            if (link && link.dataset.page) {
+                e.preventDefault();
+                this.navigate(link.dataset.page);
+            }
+        });
+
+        // Sidebar toggle (mobile)
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        if (sidebarToggle && sidebar) {
+            sidebarToggle.addEventListener('click', () => {
+                if (window.innerWidth > 768) {
+                    sidebar.classList.toggle('collapsed');
+                    document.body.classList.toggle('sidebar-collapsed');
+                } else {
+                    sidebar.classList.toggle('open');
+                    if (overlay) overlay.classList.toggle('visible');
+                }
+                if (sidebar.classList.contains('collapsed') && overlay) {
+                    overlay.classList.remove('visible');
+                }
+            });
+        }
+
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                sidebar.classList.remove('collapsed');
+                document.body.classList.remove('sidebar-collapsed');
+                overlay.classList.remove('visible');
+            });
+        }
+
+        // Sidebar close button (inside sidebar header)
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+        if (sidebarCloseBtn) {
+            sidebarCloseBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                document.body.classList.toggle('sidebar-collapsed');
+                if (overlay) overlay.classList.remove('visible');
+            });
+        }
+
+        // Admin dropdown toggle in sidebar
+        const adminToggle = document.getElementById('sidebarAdminToggle');
+        if (adminToggle) {
+            adminToggle.addEventListener('click', () => {
+                adminToggle.closest('.sidebar-dropdown').classList.toggle('open');
+            });
+        }
+
+        // Logout buttons in sidebar
+        const handleLogout = () => {
+            localStorage.removeItem('teto_falso_token');
+            localStorage.removeItem('teto_falso_refresh_token');
+            localStorage.removeItem('teto_falso_user');
+            sessionStorage.removeItem('teto_falso_session');
+            window.location.hash = 'login';
+            window.location.reload();
+        };
+
+        const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
+        if (sidebarLogoutBtn) sidebarLogoutBtn.addEventListener('click', handleLogout);
+
+        const sidebarLogout = document.getElementById('sidebarLogout');
+        if (sidebarLogout) sidebarLogout.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLogout();
+        });
+    }
+}
+
+// ==================== AUTH HEADERS HELPER ====================
+function getAuthHeaders() {
+    const token = localStorage.getItem('teto_falso_token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+// ==================== TOKEN REFRESH ====================
+let isRefreshing = false;
+let refreshPromise = null;
+
+async function tryRefreshToken() {
+    if (isRefreshing) {
+        return refreshPromise;
+    }
+    isRefreshing = true;
+    refreshPromise = (async () => {
+        const refreshToken = localStorage.getItem('teto_falso_refresh_token');
+        if (!refreshToken) {
+            throw new Error('Sem refresh token');
+        }
+        const response = await fetch(`${API_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken })
+        });
+        if (!response.ok) {
+            throw new Error('Falha ao renovar token');
+        }
+        const data = await response.json();
+        localStorage.setItem('teto_falso_token', data.token);
+        if (data.refreshToken) {
+            localStorage.setItem('teto_falso_refresh_token', data.refreshToken);
+        }
+        return data.token;
+    })();
+
+    try {
+        return await refreshPromise;
+    } finally {
+        isRefreshing = false;
+        refreshPromise = null;
+    }
+}
+
+function clearAuthAndRedirect() {
+    localStorage.removeItem('teto_falso_token');
+    localStorage.removeItem('teto_falso_refresh_token');
+    localStorage.removeItem('teto_falso_user');
+    sessionStorage.removeItem('teto_falso_session');
+    router.navigate('login');
+}
+
+// ==================== API FUNCTIONS ====================
+const api = {
+    async get(endpoint) {
+        let response = await fetch(`${API_URL}${endpoint}`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (response.status === 401) {
+            try {
+                await tryRefreshToken();
+                response = await fetch(`${API_URL}${endpoint}`, {
+                    headers: { ...getAuthHeaders() }
+                });
+            } catch {
+                clearAuthAndRedirect();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+        }
+        if (response.status === 403) {
+            clearAuthAndRedirect();
+            throw new Error('Sessão expirada. Faça login novamente.');
+        }
+        if (!response.ok) throw new Error('API request failed');
+        return response.json();
+    },
+
+    async post(endpoint, data) {
+        let response = await fetch(`${API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify(data)
+        });
+        if (response.status === 401) {
+            try {
+                await tryRefreshToken();
+                response = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify(data)
+                });
+            } catch {
+                clearAuthAndRedirect();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+        }
+        if (response.status === 403) {
+            clearAuthAndRedirect();
+            throw new Error('Sessão expirada. Faça login novamente.');
+        }
+        const dataJson = await response.json();
+        if (!response.ok) throw new Error(dataJson.error || 'API request failed');
+        return dataJson;
+    },
+
+    async put(endpoint, data) {
+        let response = await fetch(`${API_URL}${endpoint}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify(data)
+        });
+        if (response.status === 401) {
+            try {
+                await tryRefreshToken();
+                response = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify(data)
+                });
+            } catch {
+                clearAuthAndRedirect();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+        }
+        if (response.status === 403) {
+            clearAuthAndRedirect();
+            throw new Error('Sessão expirada. Faça login novamente.');
+        }
+        if (!response.ok) throw new Error('API request failed');
+        return response.json();
+    },
+
+    async delete(endpoint) {
+        let response = await fetch(`${API_URL}${endpoint}`, {
+            method: 'DELETE',
+            headers: { ...getAuthHeaders() }
+        });
+        if (response.status === 401) {
+            try {
+                await tryRefreshToken();
+                response = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'DELETE',
+                    headers: { ...getAuthHeaders() }
+                });
+            } catch {
+                clearAuthAndRedirect();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+        }
+        if (response.status === 403) {
+            clearAuthAndRedirect();
+            throw new Error('Sessão expirada. Faça login novamente.');
+        }
+        if (!response.ok) throw new Error('API request failed');
+        return response.json();
+    },
+
+    async uploadFile(endpoint, formData, method = 'POST') {
+        let token = localStorage.getItem('teto_falso_token');
+        let headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        let response = await fetch(`${API_URL}${endpoint}`, {
+            method: method,
+            headers: headers,
+            body: formData
+        });
+        if (response.status === 401) {
+            try {
+                await tryRefreshToken();
+                token = localStorage.getItem('teto_falso_token');
+                headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                response = await fetch(`${API_URL}${endpoint}`, {
+                    method: method,
+                    headers: headers,
+                    body: formData
+                });
+            } catch {
+                clearAuthAndRedirect();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+        }
+        if (response.status === 403) {
+            clearAuthAndRedirect();
+            throw new Error('Sessão expirada. Faça login novamente.');
+        }
+        if (!response.ok) throw new Error('Upload failed');
+        return response.json();
+    },
+
+    async postWithoutAuth(endpoint, data) {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error('API request failed');
+        return response.json();
+    }
+};
+
+// ==================== UTILITY FUNCTIONS ====================
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.add('active');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('active');
+}
+
+function showToast(message, type) {
+    const existing = document.getElementById('toastNotification');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'toastNotification';
+    toast.style.cssText = `
+        position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10000;
+        padding: 1rem 1.5rem; border-radius: var(--radius-lg);
+        font-weight: 600; font-size: 0.95rem;
+        color: white; max-width: 400px;
+        box-shadow: var(--shadow-xl);
+        animation: slideIn 0.3s ease-out;
+        ${type === 'error' ? 'background: #ef4444;' : 'background: #10b981;'}
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+
+    const style = document.createElement('style');
+    style.id = 'toastKeyframes';
+    if (!document.getElementById('toastKeyframes')) {
+        style.textContent = `@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`;
+        document.head.appendChild(style);
+    }
+}
+
+function showError(message) {
+    showToast(message, 'error');
+}
+
+function showSuccess(message) {
+    showToast(message, 'success');
+}
+
+function formatCurrency(value) {
+    const formatted = new Intl.NumberFormat('pt-MZ', {
+        style: 'currency',
+        currency: 'MZN'
+    }).format(value);
+    return formatted.replace(/MTn|MTN|MZN/g, 'MT');
+}
+
+function formatDate(date) {
+    return new Date(date).toLocaleDateString('pt-MZ');
+}
+
+function render(html) {
+    document.getElementById('app').innerHTML = html;
+}
+
+// ==================== SIDEBAR UPDATE BY ROLE ====================
+function atualizarNav() {
+    const token = localStorage.getItem('teto_falso_token');
+    const userData = localStorage.getItem('teto_falso_user');
+    const user = userData ? JSON.parse(userData) : null;
+    const role = user ? user.role : null;
+    const isLoggedIn = !!token;
+
+    // Elementos da sidebar
+    const sidebarLinks = document.querySelectorAll('.sidebar-link');
+    const sidebarUser = document.getElementById('sidebarUser');
+    const sidebarAdminItem = document.getElementById('sidebarAdminItem');
+    const sidebarFooter = document.querySelector('.sidebar-footer');
+    const userName = document.getElementById('sidebarUserName');
+    const userRole = document.getElementById('sidebarUserRole');
+    const userIcon = document.getElementById('sidebarUserIcon');
+
+    // Mostrar/ocultar links baseado na role
+    sidebarLinks.forEach(link => {
+        const page = link.dataset.page;
+
+        if (!page) return;
+
+        // Se não estiver logado, esconder links restritos
+        if (!isLoggedIn) {
+            link.style.display = page === 'login' ? '' : 'none';
+            return;
+        }
+
+        // Links que apenas admin/funcionario veem
+        if (page === 'calculadora' || page === 'orcamentos' || page === 'mensagens') {
+            link.style.display = (role === 'admin' || role === 'funcionario') ? '' : 'none';
+        }
+        // Links que todos os logados veem
+        else if (['home', 'servicos', 'empresa', 'portfolio', 'contato', 'termos', 'login'].includes(page)) {
+            link.style.display = '';
+        }
+        // Admin panel
+        else if (page === 'admin') {
+            // handled by sidebarAdminItem
+        } else {
+            link.style.display = '';
+        }
+    });
+
+    // Admin dropdown visibility
+    if (sidebarAdminItem) {
+        sidebarAdminItem.style.display = role === 'admin' ? '' : 'none';
+    }
+
+    // Atualizar info do usuário na sidebar
+    if (isLoggedIn && user) {
+        if (sidebarUser) sidebarUser.style.display = 'flex';
+        if (sidebarFooter) sidebarFooter.style.display = 'block';
+        if (userName) userName.textContent = user.nome;
+        if (userRole) {
+            const roleNames = { admin: 'Administrador', funcionario: 'Funcionário', cliente: 'Cliente' };
+            userRole.textContent = roleNames[user.role] || user.role;
+        }
+        if (userIcon) {
+            const icons = { admin: '⚙️', funcionario: '👷', cliente: '👤' };
+            userIcon.textContent = icons[user.role] || '👤';
+        }
+    } else {
+        if (sidebarUser) sidebarUser.style.display = 'none';
+        if (sidebarFooter) sidebarFooter.style.display = 'none';
+    }
+}
+
+
+
+// ==================== ROLE-BASED REDIRECT ====================
+function redirectAfterLogin(user) {
+    if (user.role === 'admin') {
+        return 'admin';
+    } else if (user.role === 'funcionario') {
+        return 'calculadora';
+    } else {
+        return 'home';
+    }
+}
+
+// ==================== ROLE-BASED ACCESS CONTROL ====================
+function verificarAcesso(path) {
+    const token = localStorage.getItem('teto_falso_token');
+    const userData = localStorage.getItem('teto_falso_user');
+    const user = userData ? JSON.parse(userData) : null;
+    const role = user ? user.role : null;
+
+    // A página de login é a única acessível sem autenticação
+    if (path === 'login') return path;
+
+    // Se não estiver logado, redirecionar para login
+    if (!token || !role) {
+        return 'login';
+    }
+
+    // Páginas apenas para admin
+    const paginasAdmin = ['admin'];
+    if (paginasAdmin.includes(path) && role !== 'admin') {
+        showError('Acesso não autorizado');
+        return 'home';
+    }
+
+    return path;
+}
+
+// Override navigate to check access
+const originalNavigate = Router.prototype.navigate;
+Router.prototype.navigate = function(path) {
+    const allowedPath = verificarAcesso(path);
+    if (allowedPath !== path) {
+        path = allowedPath;
+        // Atualizar o hash da URL para refletir o redirecionamento
+        window.location.hash = path;
+    }
+    return originalNavigate.call(this, path);
+};
+
+// ==================== INITIALIZE APP ====================
+const router = new Router();
+
+// Import and register pages
+Promise.all([
+    import('./pages/home.js').then(module => router.register('home', module.default)),
+    import('./pages/servicos.js').then(module => router.register('servicos', module.default)),
+    import('./pages/empresa.js').then(module => router.register('empresa', module.default)),
+    import('./pages/portfolio.js').then(module => router.register('portfolio', module.default)),
+    import('./pages/calculadora.js').then(module => router.register('calculadora', module.default)),
+    import('./pages/orcamentos.js').then(module => router.register('orcamentos', module.default)),
+    import('./pages/contato.js').then(module => router.register('contato', module.default)),
+    import('./pages/mensagens.js').then(module => router.register('mensagens', module.default)),
+    import('./pages/termos.js').then(module => router.register('termos', module.default)),
+    import('./pages/login.js').then(module => router.register('login', module.default)),
+    import('./pages/admin.js').then(module => router.register('admin', module.default))
+]).then(() => {
+    // Atualizar nav baseado na role
+    atualizarNav();
+
+    // Primeiro acesso no separador? Vai para login. Recarregou? Fica onde está.
+    const hasSession = sessionStorage.getItem('teto_falso_session');
+    const token = localStorage.getItem('teto_falso_token');
+    let initialPage;
+    if (hasSession && token) {
+        initialPage = window.location.hash.slice(1) || 'home';
+    } else {
+        initialPage = 'login';
+        if (token) sessionStorage.setItem('teto_falso_session', '1');
+    }
+    window.location.hash = initialPage;
+    router.navigate(initialPage);
+}).catch(error => {
+    console.error('Error loading pages:', error);
+    showError(`Erro ao carregar o sistema: ${error.message}. Por favor, recarregue a página.`);
+});
+
+// Export for use in other modules
+export { router, api, state, render, formatCurrency, formatDate, showLoading, hideLoading, showError, showSuccess, atualizarNav, redirectAfterLogin };

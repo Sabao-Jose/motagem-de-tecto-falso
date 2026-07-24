@@ -1,0 +1,1402 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
+const db = require('./database');
+
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'teto-falso-sabao-jwt-secret-2024';
+const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+
+// ==================== MIDDLEWARE DE SEGURANCA ====================
+const security = require('./middleware/security');
+app.use(security.helmet);
+app.use(security.cors);
+app.use('/api/auth/login', security.loginLimiter);
+
+// ==================== MIDDLEWARE GLOBAL ====================
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(cookieParser());
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
+
+// Rate limiter global apenas nas rotas da API (nao afeta imagens, CSS, JS)
+app.use('/api', security.generalLimiter);
+
+// Criar pasta de uploads se não existir
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+}
+
+// Configuração do Multer para upload de arquivos
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mov|mkv|webm|pdf/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Erro: Apenas imagens, vídeos e PDFs são permitidos!'));
+        }
+    }
+});
+
+// ==================== MIDDLEWARE DE AUTENTICAÇÃO (MELHORADO) ====================
+const { autenticarToken, verificarRole, gerarTokens, renovarToken } = require('./middleware/auth');
+
+// ==================== FUNÇÃO DE ENVIO DE EMAIL ====================
+
+function enviarEmail(destinatario, assunto, html) {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT chave, valor FROM configuracoes WHERE chave LIKE "smtp_%"', [], (err, rows) => {
+            if (err) return reject(err);
+
+            const config = {};
+            rows.forEach(r => { config[r.chave] = r.valor; });
+
+            if (!config.smtp_host) {
+                return reject(new Error('SMTP não configurado'));
+            }
+
+            const transporter = nodemailer.createTransport({
+                host: config.smtp_host,
+                port: parseInt(config.smtp_port || '587'),
+                secure: config.smtp_secure === '1',
+                auth: {
+                    user: config.smtp_user,
+                    pass: config.smtp_pass
+                }
+            });
+
+            db.get('SELECT valor FROM configuracoes WHERE chave = "empresa_email"', [], (err, row) => {
+                if (err) return reject(err);
+                const fromEmail = row ? row.valor : 'noreply@tetofalso.com';
+
+                transporter.sendMail({
+                    from: `"${config.smtp_user ? 'Teto Falso Sabao' : 'Sistema'}" <${fromEmail}>`,
+                    to: destinatario,
+                    subject: assunto,
+                    html: html
+                }, (err, info) => {
+                    if (err) return reject(err);
+                    resolve(info);
+                });
+            });
+        });
+    });
+}
+
+// ==================== ROTAS DE AUTENTICAÇÃO ====================
+
+// Login
+app.post('/api/auth/login', (req, res) => {
+    const { email, senha } = req.body;
+
+    if (!email || !senha) {
+        return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    }
+
+    db.get('SELECT * FROM usuarios WHERE email = ?', [email], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        if (!user) {
+            return res.status(401).json({ error: 'Email ou senha incorretos' });
+        }
+
+        const senhaValida = bcrypt.compareSync(senha, user.senha);
+        if (!senhaValida) {
+            db.run('UPDATE usuarios SET tentativas_login = tentativas_login + 1 WHERE id = ?', [user.id]);
+            return res.status(401).json({ error: 'Email ou senha incorretos' });
+        }
+
+        if (user.ativo === 0) {
+            return res.status(403).json({ error: 'Conta desativada. Contacte o administrador.' });
+        }
+
+        db.run('UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP, tentativas_login = 0 WHERE id = ?', [user.id]);
+
+        const tokens = gerarTokens(user);
+
+        res.json({
+            ...tokens,
+            user: {
+                id: user.id,
+                nome: user.nome,
+                email: user.email,
+                role: user.role,
+                pode_responder_mensagens: user.pode_responder_mensagens || 0
+            }
+        });
+    });
+});
+
+// Registro de cliente
+app.post('/api/auth/register', (req, res) => {
+    const { nome, email, senha, telefone } = req.body;
+
+    if (!nome || !email || !senha) {
+        return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
+    }
+
+    // Verificar se email já existe
+    db.get('SELECT id FROM usuarios WHERE email = ?', [email], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        if (row) {
+            return res.status(400).json({ error: 'Email já registado' });
+        }
+
+        const senhaHash = bcrypt.hashSync(senha, BCRYPT_SALT_ROUNDS);
+
+        db.run(
+            'INSERT INTO usuarios (nome, email, senha, telefone, role) VALUES (?, ?, ?, ?, ?)',
+            [nome, email, senhaHash, telefone || null, 'cliente'],
+            function (err) {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+
+                const tokens = gerarTokens({ id: this.lastID, nome, email, role: 'cliente' });
+
+                res.json({
+                    ...tokens,
+                    user: { id: this.lastID, nome, email, role: 'cliente' }
+                });
+            }
+        );
+    });
+});
+
+// Obter dados do usuário atual
+app.get('/api/auth/me', autenticarToken, (req, res) => {
+    db.get('SELECT id, nome, email, telefone, role, created_at FROM usuarios WHERE id = ?', [req.user.id], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        if (!user) {
+            return res.status(404).json({ error: 'Usuário não encontrado' });
+        }
+        res.json({ user });
+    });
+});
+
+// ==================== ROTAS DE GESTÃO DE USUÁRIOS (ADMIN) ====================
+
+// Atualizar dados de um utilizador (nome, email, telefone)
+app.put('/api/usuarios/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { nome, email, telefone } = req.body;
+
+    if (!nome || !email) {
+        return res.status(400).json({ error: 'Nome e email são obrigatórios' });
+    }
+
+    // Verificar se email já existe (se for diferente do atual)
+    db.get('SELECT id FROM usuarios WHERE email = ? AND id != ?', [email, req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (row) return res.status(400).json({ error: 'Email já está em uso por outro utilizador' });
+
+        db.run(
+            'UPDATE usuarios SET nome = ?, email = ?, telefone = ? WHERE id = ?',
+            [nome, email, telefone || null, req.params.id],
+            function (err) {
+                if (err) return res.status(500).json({ error: err.message });
+                if (this.changes === 0) return res.status(404).json({ error: 'Utilizador não encontrado' });
+                res.json({ message: 'Dados actualizados com sucesso!' });
+            }
+        );
+    });
+});
+
+// Listar todos os usuários
+app.get('/api/usuarios', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.all('SELECT id, nome, email, telefone, role, verificado, salario, endereco, numero_conta, banco, tipo_conta, foto, pode_responder_mensagens, created_at FROM usuarios ORDER BY created_at DESC', [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ usuarios: rows });
+    });
+});
+
+// Criar usuário (admin ou funcionario)
+app.post('/api/usuarios', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { nome, email, senha, telefone, role, salario, endereco, numero_conta, banco, tipo_conta } = req.body;
+
+    if (!nome || !email || !senha || !role) {
+        return res.status(400).json({ error: 'Nome, email, senha e role são obrigatórios' });
+    }
+
+    if (!['admin', 'funcionario', 'cliente'].includes(role)) {
+        return res.status(400).json({ error: 'Role inválida. Use: admin, funcionario ou cliente' });
+    }
+
+    db.get('SELECT id FROM usuarios WHERE email = ?', [email], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (row) return res.status(400).json({ error: 'Email já registado' });
+
+        const senhaHash = bcrypt.hashSync(senha, BCRYPT_SALT_ROUNDS);
+        db.run(
+            'INSERT INTO usuarios (nome, email, senha, telefone, role, salario, endereco, numero_conta, banco, tipo_conta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [nome, email, senhaHash, telefone || null, role, salario || 0, endereco || null, numero_conta || null, banco || null, tipo_conta || null],
+            function (err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ id: this.lastID, message: 'Usuário criado com sucesso!' });
+            }
+        );
+    });
+});
+
+// Atualizar role de um usuário
+app.put('/api/usuarios/:id/role', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { role } = req.body;
+
+    if (!['admin', 'funcionario', 'cliente'].includes(role)) {
+        return res.status(400).json({ error: 'Role inválida. Use: admin, funcionario ou cliente' });
+    }
+
+    db.run('UPDATE usuarios SET role = ? WHERE id = ?', [role, req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+        res.json({ message: 'Role atualizada com sucesso!' });
+    });
+});
+
+// Alternar permissão de responder mensagens
+app.put('/api/usuarios/:id/responder-permissao', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { pode_responder } = req.body;
+    db.run(
+        'UPDATE usuarios SET pode_responder_mensagens = ? WHERE id = ?',
+        [pode_responder ? 1 : 0, req.params.id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+            res.json({ message: 'Permissão atualizada com sucesso!' });
+        }
+    );
+});
+
+// Deletar usuário
+app.delete('/api/usuarios/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.run('DELETE FROM usuarios WHERE id = ?', [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+        res.json({ message: 'Usuário deletado com sucesso!' });
+    });
+});
+
+// Atualizar dados de funcionário (salario, endereco, numero_conta, banco, tipo_conta, foto)
+app.put('/api/usuarios/:id/dados', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { salario, endereco, numero_conta, banco, tipo_conta, foto } = req.body;
+    db.run(
+        'UPDATE usuarios SET salario = ?, endereco = ?, numero_conta = ?, banco = ?, tipo_conta = ?, foto = ? WHERE id = ?',
+        [salario || 0, endereco || null, numero_conta || null, banco || null, tipo_conta || null, foto || null, req.params.id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+            res.json({ message: 'Dados actualizados com sucesso!' });
+        }
+    );
+});
+
+// Upload foto do funcionário
+app.post('/api/usuarios/:id/foto', autenticarToken, verificarRole('admin'), (req, res) => {
+    upload.single('foto')(req, res, function (err) {
+        if (err) {
+            return res.status(400).json({ error: err.message || err });
+        }
+        if (!req.file) {
+            return res.status(400).json({ error: 'Nenhuma foto enviada' });
+        }
+        const fotoUrl = '/uploads/' + req.file.filename;
+        db.run(
+            'UPDATE usuarios SET foto = ? WHERE id = ?',
+            [fotoUrl, req.params.id],
+            function (err) {
+                if (err) return res.status(500).json({ error: err.message });
+                if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+                res.json({ foto: fotoUrl, message: 'Foto actualizada com sucesso!' });
+            }
+        );
+    });
+});
+
+// ==================== ROTAS DE CLIENTES ====================
+
+// Listar todos os clientes
+app.get('/api/clientes', (req, res) => {
+    db.all('SELECT * FROM clientes ORDER BY created_at DESC', [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ clientes: rows });
+    });
+});
+
+// Listar clientes registados (role=cliente) com verificação e último login
+app.get('/api/clientes/lista', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.all('SELECT id, nome, email, telefone, verificado, created_at, ultimo_login FROM usuarios WHERE role = "cliente" ORDER BY created_at DESC', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ clientes: rows });
+    });
+});
+
+// Buscar cliente por ID
+app.get('/api/clientes/:id', (req, res) => {
+    db.get('SELECT * FROM clientes WHERE id = ?', [req.params.id], (err, row) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ cliente: row });
+    });
+});
+
+// Criar novo cliente
+app.post('/api/clientes', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    const { nome, telefone, email, endereco } = req.body;
+
+    if (telefone && telefone.replace(/[^0-9]/g, '').length > 9) {
+        return res.status(400).json({ error: 'Telefone deve ter no maximo 9 digitos' });
+    }
+
+    db.run(
+        'INSERT INTO clientes (nome, telefone, email, endereco) VALUES (?, ?, ?, ?)',
+        [nome, telefone, email, endereco],
+        function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ id: this.lastID, message: 'Cliente criado com sucesso!' });
+        }
+    );
+});
+
+// Atualizar cliente
+app.put('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    const { nome, telefone, email, endereco } = req.body;
+
+    if (telefone && telefone.replace(/[^0-9]/g, '').length > 9) {
+        return res.status(400).json({ error: 'Telefone deve ter no maximo 9 digitos' });
+    }
+
+    db.run(
+        'UPDATE clientes SET nome = ?, telefone = ?, email = ?, endereco = ? WHERE id = ?',
+        [nome, telefone, email, endereco, req.params.id],
+        function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ message: 'Cliente atualizado com sucesso!' });
+        }
+    );
+});
+
+// Deletar cliente
+app.delete('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    db.run('DELETE FROM clientes WHERE id = ?', [req.params.id], function (err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ message: 'Cliente deletado com sucesso!' });
+    });
+});
+
+// ==================== ROTAS DE SERVIÇOS ====================
+
+// Listar todos os serviços
+app.get('/api/servicos', (req, res) => {
+    const query = `
+    SELECT s.*, c.nome as cliente_nome 
+    FROM servicos s 
+    LEFT JOIN clientes c ON s.cliente_id = c.id 
+    ORDER BY s.created_at DESC
+  `;
+
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ servicos: rows });
+    });
+});
+
+// Buscar serviço por ID
+app.get('/api/servicos/:id', (req, res) => {
+    const query = `
+    SELECT s.*, c.nome as cliente_nome, c.telefone, c.email, c.endereco 
+    FROM servicos s 
+    LEFT JOIN clientes c ON s.cliente_id = c.id 
+    WHERE s.id = ?
+  `;
+
+    db.get(query, [req.params.id], (err, row) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ servico: row });
+    });
+});
+
+// Criar novo serviço/orçamento
+app.post('/api/servicos', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    const {
+        cliente_id,
+        tipo_teto,
+        area,
+        largura,
+        comprimento,
+        materiais_json,
+        servicos_adicionais_json,
+        valor_materiais,
+        valor_mao_obra,
+        valor_total,
+        data_servico,
+        status,
+        observacoes
+    } = req.body;
+
+    db.run(
+        `INSERT INTO servicos (
+      cliente_id, tipo_teto, area, largura, comprimento, 
+      materiais_json, servicos_adicionais_json, 
+      valor_materiais, valor_mao_obra, valor_total, 
+      data_servico, status, observacoes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            cliente_id, tipo_teto, area, largura, comprimento,
+            materiais_json, servicos_adicionais_json,
+            valor_materiais, valor_mao_obra, valor_total,
+            data_servico, status || 'pendente', observacoes
+        ],
+        function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ id: this.lastID, message: 'Serviço criado com sucesso!' });
+        }
+    );
+});
+
+// Atualizar serviço (apenas admin)
+app.put('/api/servicos/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { status, observacoes, area } = req.body;
+
+    // Build query dynamically based on what was provided
+    let updates = [];
+    let params = [];
+
+    if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+    if (observacoes !== undefined) { updates.push('observacoes = ?'); params.push(observacoes); }
+    if (area !== undefined) { updates.push('area = ?'); params.push(area); }
+
+    if (updates.length === 0) return res.json({ message: 'Nenhuma alteração enviada' });
+
+    params.push(req.params.id);
+
+    db.run(
+        `UPDATE servicos SET ${updates.join(', ')} WHERE id = ?`,
+        params,
+        function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ message: 'Serviço atualizado com sucesso!' });
+        }
+    );
+});
+
+// Atualizar materiais do serviço (apenas admin)
+app.put('/api/servicos/:id/materiais', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { materiais_json, valor_materiais, valor_total } = req.body;
+    db.run(
+        'UPDATE servicos SET materiais_json = ?, valor_materiais = ?, valor_total = ? WHERE id = ?',
+        [materiais_json, valor_materiais, valor_total, req.params.id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: 'Materiais atualizados com sucesso!' });
+        }
+    );
+});
+
+// Deletar serviço/orçamento (apenas admin) — com backup automático
+app.delete('/api/servicos/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+    // Primeiro buscar o serviço para fazer backup
+    db.get('SELECT s.*, c.nome as cliente_nome FROM servicos s LEFT JOIN clientes c ON s.cliente_id = c.id WHERE s.id = ?', [req.params.id], (err, servico) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!servico) return res.status(404).json({ error: 'Serviço não encontrado' });
+
+        // Inserir backup antes de apagar
+        const stmt = db.prepare(`
+            INSERT INTO servicos_backup (
+                original_id, cliente_id, cliente_nome, tipo_teto, area, largura, comprimento,
+                materiais_json, servicos_adicionais_json, valor_materiais, valor_mao_obra,
+                valor_total, data_servico, status, observacoes, pago,
+                deleted_by, deleted_by_nome, original_created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        stmt.run(
+            servico.id, servico.cliente_id, servico.cliente_nome, servico.tipo_teto,
+            servico.area, servico.largura, servico.comprimento,
+            servico.materiais_json, servico.servicos_adicionais_json,
+            servico.valor_materiais, servico.valor_mao_obra, servico.valor_total,
+            servico.data_servico, servico.status, servico.observacoes, servico.pago,
+            req.user.id, req.user.nome, servico.created_at
+        );
+        stmt.finalize();
+
+        // Agora sim deletar
+        db.run('DELETE FROM servicos WHERE id = ?', [req.params.id], function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Serviço não encontrado' });
+
+            // Registar na auditoria
+            const { registrarAuditoria } = require('./middleware/audit');
+            registrarAuditoria(req.user.id, 'servico_deletado_com_backup', {
+                servico_id: servico.id,
+                cliente: servico.cliente_nome,
+                valor: servico.valor_total,
+                tipo: servico.tipo_teto
+            }, req.ip, req.headers['user-agent']);
+
+            res.json({ message: 'Serviço deletado com sucesso! Cópia de segurança criada.' });
+        });
+    });
+});
+
+// ==================== ROTAS DE CONTACTO ====================
+
+// Enviar mensagem de contacto (público)
+app.post('/api/contact', (req, res) => {
+    const { nome, telefone, email, assunto, mensagem } = req.body;
+
+    if (!nome || !telefone || !email || !assunto || !mensagem) {
+        return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+    }
+
+    db.run(
+        'INSERT INTO contact_messages (nome, telefone, email, assunto, mensagem) VALUES (?, ?, ?, ?, ?)',
+        [nome, telefone, email, assunto, mensagem],
+        function (err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+
+            // Enviar email de notificação ao admin
+            db.get('SELECT valor FROM configuracoes WHERE chave = "admin_email"', [], (err, rowAdmin) => {
+                if (!err && rowAdmin && rowAdmin.valor) {
+                    const adminEmail = rowAdmin.valor;
+                    const assuntoEmail = `[Nova Mensagem] ${assunto} - ${nome}`;
+                    const htmlEmail = `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #2563eb;">📬 Nova Mensagem de Contacto</h2>
+                            <p>Uma nova mensagem foi recebida pelo formulário de contacto:</p>
+                            <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                                <p><strong>Nome:</strong> ${nome}</p>
+                                <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+                                <p><strong>Telefone:</strong> <a href="tel:${telefone}">${telefone}</a></p>
+                                <p><strong>Assunto:</strong> ${assunto}</p>
+                            </div>
+                            <div style="background: #eff6ff; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #2563eb;">
+                                <p><strong>Mensagem:</strong></p>
+                                <p>${mensagem}</p>
+                            </div>
+                            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                            <p style="color: #6b7280; font-size: 12px;">Este é um email automático do sistema Teto Falso Sabao. Responda pelo painel admin.</p>
+                        </div>
+                    `;
+                    enviarEmail(adminEmail, assuntoEmail, htmlEmail).catch(erro => {
+                        console.error('Erro ao enviar notificação ao admin:', erro.message);
+                    });
+                }
+            });
+
+            res.json({ id: this.lastID, message: 'Mensagem enviada com sucesso!' });
+        }
+    );
+});
+
+// Listar mensagens de contacto (admin/funcionario)
+app.get('/api/contact', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    db.all('SELECT * FROM contact_messages ORDER BY created_at DESC', [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ messages: rows });
+    });
+});
+
+// Marcar mensagem como lida
+app.put('/api/contact/:id/read', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    db.run('UPDATE contact_messages SET lido = 1 WHERE id = ?', [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Mensagem não encontrada' });
+        res.json({ message: 'Mensagem marcada como lida' });
+    });
+});
+
+// Responder mensagem (com anexo opcional) - envia email ao cliente
+app.put('/api/contact/:id/reply', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    upload.single('anexo')(req, res, function (err) {
+        if (err) {
+            return res.status(400).json({ error: err.message || err });
+        }
+
+        const { resposta, resposta_orcamento_id } = req.body;
+        if (!resposta || !resposta.trim()) {
+            return res.status(400).json({ error: 'A resposta é obrigatória' });
+        }
+
+        let anexo_url = null;
+        if (req.file) {
+            anexo_url = '/uploads/' + req.file.filename;
+        }
+
+        // Buscar mensagem original para obter email do cliente
+        db.get('SELECT * FROM contact_messages WHERE id = ?', [req.params.id], (err, msg) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (!msg) return res.status(404).json({ error: 'Mensagem não encontrada' });
+
+            // Actualizar a mensagem com a resposta
+            db.run(
+                'UPDATE contact_messages SET resposta = ?, respondida = 1, lido = 1, updated_at = CURRENT_TIMESTAMP, resposta_anexo = ?, resposta_orcamento_id = ? WHERE id = ?',
+                [resposta.trim(), anexo_url, resposta_orcamento_id || null, req.params.id],
+                function (err) {
+                    if (err) return res.status(500).json({ error: err.message });
+
+                    // Enviar email para o cliente (assíncrono - não bloqueia a resposta)
+                    const nomeEmpresa = 'Teto Falso Sabao';
+                    const assunto = `Resposta ao seu contacto - ${msg.assunto}`;
+                    const html = `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #2563eb;">${nomeEmpresa}</h2>
+                            <p>Olá <strong>${msg.nome}</strong>,</p>
+                            <p>Recebemos a sua mensagem e temos uma resposta para si:</p>
+                            <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                                <p><strong>Assunto:</strong> ${msg.assunto}</p>
+                                <p><strong>Sua mensagem:</strong> ${msg.mensagem}</p>
+                            </div>
+                            <div style="background: #eff6ff; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #2563eb;">
+                                <p><strong>Resposta:</strong></p>
+                                <p>${resposta.trim()}</p>
+                            </div>
+                            ${anexo_url ? `<p><a href="${anexo_url}" style="color: #2563eb;">Ver anexo</a></p>` : ''}
+                            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                            <p style="color: #6b7280; font-size: 12px;">Este é um email automático do sistema ${nomeEmpresa}.</p>
+                        </div>
+                    `;
+
+                    enviarEmail(msg.email, assunto, html).catch(erro => {
+                        console.error('Erro ao enviar email de resposta:', erro.message);
+                    });
+
+                    res.json({ message: 'Resposta enviada com sucesso!', anexo: anexo_url });
+                }
+            );
+        });
+    });
+});
+
+// Deletar mensagem
+app.delete('/api/contact/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    db.run('DELETE FROM contact_messages WHERE id = ?', [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: 'Mensagem deletada' });
+    });
+});
+
+// ==================== ROTAS DE PORTFÓLIO ====================
+
+// Listar portfólio
+app.get('/api/portfolio', (req, res) => {
+    const tipo = req.query.tipo;
+    let query = 'SELECT * FROM portfolio ORDER BY created_at DESC';
+    let params = [];
+
+    if (tipo) {
+        query = 'SELECT * FROM portfolio WHERE tipo_servico = ? ORDER BY created_at DESC';
+        params = [tipo];
+    }
+
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ portfolio: rows });
+    });
+});
+
+// Adicionar projeto ao portfólio
+app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    upload.single('arquivo')(req, res, function (err) {
+        if (err) {
+            return res.status(400).json({ error: err.message || err });
+        }
+
+        const { titulo, descricao, tipo_servico } = req.body;
+        let arquivo_url = null;
+        let imagem_url = null;
+        let video_url = null;
+
+        if (req.file) {
+            arquivo_url = '/uploads/' + req.file.filename;
+
+            // Determinar se é imagem ou vídeo
+            const ext = path.extname(req.file.filename).toLowerCase();
+            if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
+                imagem_url = arquivo_url;
+            } else {
+                video_url = arquivo_url;
+            }
+        }
+
+        db.run(
+            'INSERT INTO portfolio (titulo, descricao, tipo_servico, imagem_url, video_url) VALUES (?, ?, ?, ?, ?)',
+            [titulo, descricao, tipo_servico, imagem_url, video_url],
+            function (err) {
+                if (err) {
+                    res.status(500).json({ error: err.message });
+                    return;
+                }
+                res.json({ id: this.lastID, message: 'Projeto adicionado ao portfólio!' });
+            }
+        );
+    });
+});
+
+// Atualizar projeto do portfólio
+app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    upload.single('arquivo')(req, res, function (err) {
+        if (err) {
+            return res.status(400).json({ error: err.message || err });
+        }
+
+        const { titulo, descricao, tipo_servico } = req.body;
+        let imagem_url = null;
+        let video_url = null;
+
+        if (req.file) {
+            const arquivo_url = '/uploads/' + req.file.filename;
+            const ext = path.extname(req.file.filename).toLowerCase();
+            if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
+                imagem_url = arquivo_url;
+            } else {
+                video_url = arquivo_url;
+            }
+        }
+
+        db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            if (!row) {
+                return res.status(404).json({ error: 'Projeto não encontrado' });
+            }
+
+            const finalImagem = imagem_url || row.imagem_url;
+            const finalVideo = video_url || row.video_url;
+
+            // Deletar arquivo antigo se foi substituído
+            if (imagem_url && row.imagem_url) {
+                const oldFile = path.join(__dirname, row.imagem_url);
+                if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+            }
+            if (video_url && row.video_url) {
+                const oldFile = path.join(__dirname, row.video_url);
+                if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+            }
+
+            db.run(
+                'UPDATE portfolio SET titulo = ?, descricao = ?, tipo_servico = ?, imagem_url = ?, video_url = ? WHERE id = ?',
+                [titulo, descricao, tipo_servico, finalImagem, finalVideo, req.params.id],
+                function (err) {
+                    if (err) {
+                        return res.status(500).json({ error: err.message });
+                    }
+                    res.json({ message: 'Projeto atualizado com sucesso!' });
+                }
+            );
+        });
+    });
+});
+
+// Deletar projeto do portfólio
+app.delete('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    // Buscar arquivo para deletar
+    db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], (err, row) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+
+        // Deletar arquivo físico se existir
+        if (row && (row.imagem_url || row.video_url)) {
+            const filePath = path.join(__dirname, row.imagem_url || row.video_url);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
+        // Deletar do banco
+        db.run('DELETE FROM portfolio WHERE id = ?', [req.params.id], function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ message: 'Projeto deletado com sucesso!' });
+        });
+    });
+});
+
+// ==================== ROTAS DE PEDIDOS DE PORTFÓLIO ====================
+
+// Cliente envia pedido de interesse num projeto do portfólio
+app.post('/api/pedidos-portfolio', autenticarToken, (req, res) => {
+    const { portfolio_id, portfolio_titulo, portfolio_imagem, portfolio_video, portfolio_tipo, mensagem } = req.body;
+    const user = req.user;
+
+    if (!portfolio_id) {
+        return res.status(400).json({ error: 'portfolio_id é obrigatório' });
+    }
+
+    db.run(
+        `INSERT INTO pedidos_portfolio 
+        (usuario_id, usuario_nome, usuario_email, portfolio_id, portfolio_titulo, portfolio_imagem, portfolio_video, portfolio_tipo, mensagem)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [user.id, user.nome, user.email, portfolio_id, portfolio_titulo || '', portfolio_imagem || '', portfolio_video || '', portfolio_tipo || '', mensagem || ''],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, message: 'Pedido enviado ao administrador com sucesso!' });
+        }
+    );
+});
+
+// Admin/funcionário lista todos os pedidos de portfólio
+app.get('/api/pedidos-portfolio', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    db.all('SELECT * FROM pedidos_portfolio ORDER BY created_at DESC', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ pedidos: rows });
+    });
+});
+
+// Admin atualiza status do pedido
+app.put('/api/pedidos-portfolio/:id/status', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    const { status, orcamento_id } = req.body;
+    const validStatus = ['pendente', 'visto', 'orcamento_criado'];
+    if (!validStatus.includes(status)) {
+        return res.status(400).json({ error: 'Status inválido' });
+    }
+    db.run(
+        'UPDATE pedidos_portfolio SET status = ?, orcamento_id = ? WHERE id = ?',
+        [status, orcamento_id || null, req.params.id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
+            res.json({ message: 'Status actualizado com sucesso!' });
+        }
+    );
+});
+
+// Admin elimina um pedido
+app.delete('/api/pedidos-portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    db.run('DELETE FROM pedidos_portfolio WHERE id = ?', [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
+        res.json({ message: 'Pedido eliminado com sucesso!' });
+    });
+});
+
+// ==================== ROTAS DE CONFIGURAÇÕES ====================
+
+
+// Buscar todas as configurações
+app.get('/api/configuracoes', (req, res) => {
+    db.all('SELECT * FROM configuracoes', [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+
+        const config = {};
+        rows.forEach(row => {
+            config[row.chave] = row.valor;
+        });
+
+        res.json({ configuracoes: config });
+    });
+});
+
+// Atualizar configuração
+app.put('/api/configuracoes/:chave', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    const { valor } = req.body;
+
+    db.run(
+        'UPDATE configuracoes SET valor = ? WHERE chave = ?',
+        [valor, req.params.chave],
+        function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ message: 'Configuração atualizada!' });
+        }
+    );
+});
+
+// ==================== ROTAS DE FALTAS ====================
+
+// Listar faltas de um funcionário
+app.get('/api/faltas/:usuario_id', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.all('SELECT * FROM faltas WHERE usuario_id = ? ORDER BY data DESC', [req.params.usuario_id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ faltas: rows });
+    });
+});
+
+// Listar todas as faltas (com dados do funcionário)
+app.get('/api/faltas', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.all(`
+        SELECT f.*, u.nome as funcionario_nome
+        FROM faltas f
+        JOIN usuarios u ON f.usuario_id = u.id
+        ORDER BY f.data DESC
+    `, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ faltas: rows });
+    });
+});
+
+// Marcar falta
+app.post('/api/faltas', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { usuario_id, data, observacao, tipo, tipo_falta } = req.body;
+    if (!usuario_id || !data) {
+        return res.status(400).json({ error: 'usuario_id e data são obrigatórios' });
+    }
+    db.run(
+        'INSERT INTO faltas (usuario_id, data, observacao, tipo, tipo_falta) VALUES (?, ?, ?, ?, ?)',
+        [usuario_id, data, observacao || null, tipo || null, tipo_falta || 'dia_inteiro'],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, message: 'Falta registada!' });
+        }
+    );
+});
+
+// Justificar (ou reverter) falta com tipo opcional
+app.put('/api/faltas/:id/justificar', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { tipo, justificada } = req.body;
+    let sql, params;
+    if (justificada === 0) {
+        sql = 'UPDATE faltas SET justificada = 0, tipo = NULL WHERE id = ?';
+        params = [req.params.id];
+    } else if (tipo !== undefined) {
+        sql = 'UPDATE faltas SET justificada = 1, tipo = ? WHERE id = ?';
+        params = [tipo, req.params.id];
+    } else {
+        sql = 'UPDATE faltas SET justificada = 1 WHERE id = ?';
+        params = [req.params.id];
+    }
+    db.run(sql, params, function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Falta não encontrada' });
+        const msg = justificada === 0 ? 'Justificação revertida!' : 'Falta justificada!';
+        res.json({ message: msg });
+    });
+});
+
+// Apagar falta
+app.delete('/api/faltas/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.run('DELETE FROM faltas WHERE id = ?', [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Falta não encontrada' });
+        res.json({ message: 'Falta removida!' });
+    });
+});
+
+// ==================== ROTAS DE VERIFICAÇÃO DE CLIENTES ====================
+
+// Verificar cliente
+app.put('/api/clientes/:id/verificar', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.run('UPDATE usuarios SET verificado = 1 WHERE id = ? AND role = "cliente"', [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Cliente não encontrado' });
+        res.json({ message: 'Cliente verificado!' });
+    });
+});
+
+// ==================== ROTAS DE PAGAMENTOS ====================
+
+// Listar serviços com status de pagamento
+app.get('/api/pagamentos', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.all(`
+        SELECT s.id, s.tipo_teto, s.area, s.valor_total, s.data_servico, s.pago, s.created_at,
+               COALESCE(c.nome, 'N/A') as cliente_nome
+        FROM servicos s
+        LEFT JOIN clientes c ON s.cliente_id = c.id
+        ORDER BY s.created_at DESC
+    `, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ pagamentos: rows });
+    });
+});
+
+// Marcar serviço como pago
+app.put('/api/servicos/:id/pagar', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.run('UPDATE servicos SET pago = 1 WHERE id = ?', [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Serviço não encontrado' });
+        res.json({ message: 'Pagamento registado!' });
+    });
+});
+
+// ==================== ROTAS DE PREÇOS ====================
+
+// Listar todos os preços
+app.get('/api/precos', (req, res) => {
+    const categoria = req.query.categoria;
+    let query = 'SELECT * FROM precos_materiais ORDER BY categoria, item';
+    let params = [];
+
+    if (categoria) {
+        query = 'SELECT * FROM precos_materiais WHERE categoria = ? ORDER BY item';
+        params = [categoria];
+    }
+
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ precos: rows });
+    });
+});
+
+// Atualizar preço
+app.put('/api/precos/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+    const { preco } = req.body;
+
+    db.run(
+        'UPDATE precos_materiais SET preco = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [preco, req.params.id],
+        function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ message: 'Preço atualizado!' });
+        }
+    );
+});
+
+// ==================== ROTAS DE RELATÓRIOS ====================
+
+// Relatório de serviços por período
+app.get('/api/relatorios/servicos', (req, res) => {
+    const { data_inicio, data_fim } = req.query;
+
+    let query = `
+    SELECT s.*, c.nome as cliente_nome 
+    FROM servicos s 
+    LEFT JOIN clientes c ON s.cliente_id = c.id
+  `;
+    let params = [];
+
+    if (data_inicio && data_fim) {
+        query += ' WHERE s.data_servico BETWEEN ? AND ?';
+        params = [data_inicio, data_fim];
+    }
+
+    query += ' ORDER BY s.data_servico DESC';
+
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ servicos: rows });
+    });
+});
+
+// Estatísticas gerais
+app.get('/api/relatorios/estatisticas', (req, res) => {
+    const stats = {};
+
+    // Total de clientes
+    db.get('SELECT COUNT(*) as total FROM clientes', [], (err, row) => {
+        stats.total_clientes = row ? row.total : 0;
+
+        // Total de projectos (portfolio)
+        db.get('SELECT COUNT(*) as total FROM portfolio', [], (err, row) => {
+            stats.total_servicos = row ? row.total : 0;
+
+            // Valor total faturado (todos os serviços)
+            db.get('SELECT SUM(valor_total) as total FROM servicos', [], (err, row) => {
+                stats.valor_total_faturado = row ? row.total : 0;
+
+                // Área total trabalhada
+                db.get('SELECT SUM(area) as total FROM servicos', [], (err, row) => {
+                    stats.area_total = row ? row.total : 0;
+
+                    res.json({ estatisticas: stats });
+                });
+            });
+        });
+    });
+});
+
+// ==================== ROTAS DO AGENTE INTELIGENTE ====================
+
+// Listar serviços apagados (backup)
+app.get('/api/servicos-backup', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.all(`
+        SELECT sb.*, 
+            (SELECT nome FROM usuarios WHERE id = sb.deleted_by) as deleted_by_nome
+        FROM servicos_backup sb 
+        ORDER BY sb.deleted_at DESC
+    `, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ backups: rows });
+    });
+});
+
+// Restaurar serviço apagado
+app.post('/api/servicos-backup/:id/restaurar', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.get('SELECT * FROM servicos_backup WHERE id = ?', [req.params.id], (err, backup) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!backup) return res.status(404).json({ error: 'Backup não encontrado' });
+
+        // Inserir de volta na tabela servicos
+        db.run(
+            `INSERT INTO servicos (
+                cliente_id, tipo_teto, area, largura, comprimento,
+                materiais_json, servicos_adicionais_json,
+                valor_materiais, valor_mao_obra, valor_total,
+                data_servico, status, observacoes, pago
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                backup.cliente_id, backup.tipo_teto, backup.area, backup.largura, backup.comprimento,
+                backup.materiais_json, backup.servicos_adicionais_json,
+                backup.valor_materiais, backup.valor_mao_obra, backup.valor_total,
+                backup.data_servico, backup.status || 'pendente', backup.observacoes, backup.pago || 0
+            ],
+            function (err) {
+                if (err) return res.status(500).json({ error: err.message });
+
+                // Remover do backup
+                db.run('DELETE FROM servicos_backup WHERE id = ?', [req.params.id], function (err2) {
+                    if (err2) console.error('Erro ao remover backup:', err2.message);
+                });
+
+                // Registar na auditoria
+                const { registrarAuditoria } = require('./middleware/audit');
+                registrarAuditoria(req.user.id, 'servico_restaurado', {
+                    backup_id: backup.id,
+                    novo_id: this.lastID,
+                    cliente: backup.cliente_nome,
+                    valor: backup.valor_total
+                }, req.ip, req.headers['user-agent']);
+
+                res.json({ message: 'Serviço restaurado com sucesso!', novoId: this.lastID });
+            }
+        );
+    });
+});
+
+// Relatório completo do sistema (Agente Inteligente)
+app.get('/api/agente-relatorio', autenticarToken, verificarRole('admin'), (req, res) => {
+    const relatorio = {};
+    let pending = 9;
+
+    function done() {
+        pending--;
+        if (pending === 0) {
+            res.json({ relatorio });
+        }
+    }
+
+    function fail(err) {
+        if (pending > 0) {
+            pending = 0;
+            res.status(500).json({ error: err.message });
+        }
+    }
+
+    // 1. Usuários
+    db.get('SELECT COUNT(*) as total FROM usuarios', [], (e, r) => {
+        if (e) return fail(e);
+        relatorio.totalUsuarios = r ? r.total : 0;
+
+        db.get('SELECT COUNT(*) as t FROM usuarios WHERE role="admin"', [], (e, r) => {
+            if (e) return fail(e);
+            relatorio.totalAdmins = r ? r.t : 0;
+
+            db.get('SELECT COUNT(*) as t FROM usuarios WHERE role="funcionario"', [], (e, r) => {
+                if (e) return fail(e);
+                relatorio.totalFuncionarios = r ? r.t : 0;
+
+                db.get('SELECT COUNT(*) as t FROM usuarios WHERE role="cliente"', [], (e, r) => {
+                    if (e) return fail(e);
+                    relatorio.totalClientes = r ? r.t : 0;
+                    done();
+                });
+            });
+        });
+    });
+
+    // 2. Serviços
+    db.get('SELECT COUNT(*) as total FROM servicos', [], (e, r) => {
+        if (e) return fail(e);
+        relatorio.totalServicos = r ? r.total : 0;
+
+        db.get('SELECT COALESCE(SUM(valor_total),0) as t FROM servicos', [], (e, r) => {
+            if (e) return fail(e);
+            relatorio.valorTotalFaturado = r ? r.t : 0;
+
+            db.get('SELECT COUNT(*) as t FROM servicos WHERE pago=1', [], (e, r) => {
+                if (e) return fail(e);
+                relatorio.servicosPagos = r ? r.t : 0;
+
+                db.get('SELECT COUNT(*) as t FROM servicos WHERE status="pendente"', [], (e, r) => {
+                    if (e) return fail(e);
+                    relatorio.servicosPendentes = r ? r.t : 0;
+
+                    db.get('SELECT COALESCE(SUM(valor_total),0) as t FROM servicos WHERE pago=0', [], (e, r) => {
+                        if (e) return fail(e);
+                        relatorio.valorPendente = r ? r.t : 0;
+                        done();
+                    });
+                });
+            });
+        });
+    });
+
+    // 3. Mensagens
+    db.get('SELECT COUNT(*) as t FROM contact_messages WHERE lido=0', [], (e, r) => {
+        if (e) return fail(e);
+        relatorio.mensagensNaoLidas = r ? r.t : 0;
+        done();
+    });
+
+    // 4. Faltas
+    db.get('SELECT COUNT(*) as t FROM faltas WHERE justificada=0', [], (e, r) => {
+        if (e) return fail(e);
+        relatorio.faltasNaoJustificadas = r ? r.t : 0;
+        done();
+    });
+
+    // 5. Portfolio
+    db.get('SELECT COUNT(*) as t FROM portfolio', [], (e, r) => {
+        if (e) return fail(e);
+        relatorio.totalPortfolio = r ? r.t : 0;
+        done();
+    });
+
+    // 6. Pedidos portfolio
+    db.get('SELECT COUNT(*) as t FROM pedidos_portfolio WHERE status="pendente"', [], (e, r) => {
+        if (e) return fail(e);
+        relatorio.pedidosPendentes = r ? r.t : 0;
+        done();
+    });
+
+    // 7. Backups (recibos apagados)
+    db.get('SELECT COUNT(*) as t FROM servicos_backup', [], (e, r) => {
+        if (e) return fail(e);
+        relatorio.totalBackups = r ? r.t : 0;
+        done();
+    });
+
+    // 8. Últimas atividades (audit logs)
+    db.all('SELECT al.*, u.nome as usuario_nome FROM audit_logs al LEFT JOIN usuarios u ON al.usuario_id = u.id ORDER BY al.created_at DESC LIMIT 20', [], (e, rows) => {
+        if (e) return fail(e);
+        relatorio.ultimasAtividades = rows || [];
+        done();
+    });
+
+    // 9. Últimos serviços apagados
+    db.all('SELECT * FROM servicos_backup ORDER BY deleted_at DESC LIMIT 10', [], (e, rows) => {
+        if (e) return fail(e);
+        relatorio.ultimosBackups = rows || [];
+        done();
+    });
+});
+
+// ==================== ROTA DE REFRESH TOKEN ====================
+
+app.post('/api/auth/refresh', (req, res) => {
+    renovarToken(req, res);
+});
+
+// ==================== ROTAS DO AGENTE DE IA ====================
+
+const aiRoutes = require('./routes/ai');
+app.use('/api/ai', aiRoutes);
+
+// ==================== ROTAS DE SEGURANCA ====================
+
+const securityRoutes = require('./routes/security');
+app.use('/api/security', securityRoutes);
+
+// ==================== TRATAMENTO DE ERROS GLOBAL ====================
+
+app.use((err, req, res, next) => {
+    console.error('Erro nao tratado:', err);
+
+    if (err.name === 'MulterError') {
+        return res.status(400).json({ error: 'Erro no upload: ' + err.message });
+    }
+
+    if (err.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'Ficheiro demasiado grande' });
+    }
+
+    res.status(err.status || 500).json({
+        error: process.env.NODE_ENV === 'production'
+            ? 'Erro interno do servidor'
+            : err.message
+    });
+});
+
+// ==================== INICIAR SERVIDOR ====================
+
+app.listen(PORT, () => {
+    console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
+    console.log(`📊 Sistema de Montagem de Teto Falso`);
+    console.log(`✓ API disponivel em http://localhost:${PORT}/api`);
+    console.log(`🔒 Seguranca melhorada ativa`);
+    console.log(`🤖 Agente AI ${process.env.OPENAI_API_KEY ? 'configurado' : 'nao configurado (adicione OPENAI_API_KEY no .env)'}`);
+    console.log(`\nPressione Ctrl+C para parar o servidor\n`);
+});

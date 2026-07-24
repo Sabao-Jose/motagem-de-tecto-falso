@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description"
+    content="Sistema profissional de montagem de teto falso - Gesso, PVC e Modular. Orçamentos precisos e serviços de qualidade.">
+  <meta name="keywords" content="tecto falso, gesso, pvc, tecto modular, construção, acabamento">
+  <title>Tecto Falso J J S- Sistema de Gestão de Serviços</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <!-- Sidebar Toggle (mobile) -->
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="sidebar-logo-wrapper">
+          <img src="images/logo.png" alt="Logo" class="sidebar-logo">
+        </div>
+        <div class="sidebar-brand-text">
+          <span class="sidebar-title-main" style="color: #3b82f6;">TECTO FALSO</span>
+          <span class="sidebar-title-sub" style="color: #ef4444;">SABAO</span>
+        </div>
+        <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Fechar menu">&times;</button>
+      </div>
+    </div>
+
+    <div class="sidebar-user" id="sidebarUser">
+      <div class="sidebar-user-avatar">
+        <span id="sidebarUserIcon">👤</span>
+      </div>
+      <div class="sidebar-user-info" id="sidebarUserInfo">
+        <span class="sidebar-user-name" id="sidebarUserName">Visitante</span>
+        <span class="sidebar-user-role" id="sidebarUserRole">—</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebarNav">
+      <ul class="sidebar-menu" id="navMenu">
+        <li class="sidebar-menu-item"><a href="#home" class="sidebar-link active" data-page="home"><span class="sidebar-icon">🏠</span> Home</a></li>
+        <li class="sidebar-menu-item"><a href="#servicos" class="sidebar-link" data-page="servicos"><span class="sidebar-icon">🔧</span> Serviços</a></li>
+        <li class="sidebar-menu-item"><a href="#empresa" class="sidebar-link" data-page="empresa"><span class="sidebar-icon">🏢</span> Empresa</a></li>
+        <li class="sidebar-menu-item"><a href="#portfolio" class="sidebar-link" data-page="portfolio"><span class="sidebar-icon">📁</span> Portfólio</a></li>
+        <li class="sidebar-menu-item sidebar-divider"></li>
+        <li class="sidebar-menu-item"><a href="#calculadora" class="sidebar-link" data-page="calculadora"><span class="sidebar-icon">🧮</span> Calculadora</a></li>
+        <li class="sidebar-menu-item"><a href="#orcamentos" class="sidebar-link" data-page="orcamentos"><span class="sidebar-icon">📄</span> Orçamentos</a></li>
+        <li class="sidebar-menu-item"><a href="#mensagens" class="sidebar-link" data-page="mensagens"><span class="sidebar-icon">💬</span> Mensagens</a></li>
+        <li class="sidebar-menu-item sidebar-divider"></li>
+        <li class="sidebar-menu-item"><a href="#contato" class="sidebar-link" data-page="contato"><span class="sidebar-icon">📞</span> Contato</a></li>
+        <li class="sidebar-menu-item"><a href="#termos" class="sidebar-link" data-page="termos"><span class="sidebar-icon">⚖️</span> Termos Legais</a></li>
+        <li class="sidebar-menu-item" id="sidebarAdminItem" style="display: none;">
+          <div class="sidebar-dropdown">
+            <button class="sidebar-link sidebar-dropdown-toggle" id="sidebarAdminToggle">
+              <span class="sidebar-icon">⚙️</span> Admin <span class="sidebar-arrow">▼</span>
+            </button>
+            <div class="sidebar-dropdown-menu" id="sidebarAdminMenu">
+              <a href="#admin" class="sidebar-dropdown-link" data-page="admin">📊 Painel Admin</a>
+              <div class="sidebar-dropdown-divider"></div>
+              <a href="#" id="sidebarLogout" class="sidebar-dropdown-link sidebar-logout-link">🚪 Sair</a>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-logout-btn" id="sidebarLogoutBtn">
+        <span class="sidebar-icon">🚪</span> Terminar Sessão
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main id="app" class="main-content">
+    <!-- Pages will be dynamically loaded here -->
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-section">
+        <h3><span style="color: #3b82f6;">Tecto Falso</span> <span style="color: #ef4444;">Sabao</span></h3>
+        <p>Excelência em montagem de tetos falsos desde 2011.</p>
+      </div>
+
+      <div class="footer-section">
+        <h4>Serviços</h4>
+        <ul>
+          <li><a href="#servicos">Tecto de Gesso</a></li>
+          <li><a href="#servicos">Tecto de PVC</a></li>
+          <li><a href="#servicos">Tecto Modular</a></li>
+          <li><a href="#servicos">Acabamentos</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-section">
+        <h4>Links Rápidos</h4>
+        <ul>
+          <li><a href="#calculadora">Calculadora</a></li>
+          <li><a href="#portfolio">Portfólio</a></li>
+          <li><a href="#contato">Contacto</a></li>
+          <li><a href="#termos">Termos Legais</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-section">
+        <h4>Contacto</h4>
+        <p>📞 +258 870296633/844200152</p>
+        <p>📧 tectofalsosabao@gmail.com</p>
+        <p>📍 Beira, Moçambique</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p>&copy; 2024 <span style="color: #3b82f6;">Tecto Falso</span> <span style="color: #ef4444;">Sabao</span>. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/app.js" type="module"></script>
+</body>
+
+</html>

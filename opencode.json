@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "system-admin",
+  "agent": {
+    "system-admin": {
+      "description": "Assistente especializado em administração de sistemas, gerenciamento de servidores e infraestrutura de TI.",
+      "mode": "primary"
+    }
+  }
+}
