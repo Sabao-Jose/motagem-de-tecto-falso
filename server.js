@@ -1392,11 +1392,17 @@ app.use((err, req, res, next) => {
 
 // ==================== INICIAR SERVIDOR ====================
 
-app.listen(PORT, () => {
-    console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
-    console.log(`📊 Sistema de Montagem de Teto Falso`);
-    console.log(`✓ API disponivel em http://localhost:${PORT}/api`);
-    console.log(`🔒 Seguranca melhorada ativa`);
-    console.log(`🤖 Agente AI ${process.env.OPENAI_API_KEY ? 'configurado' : 'nao configurado (adicione OPENAI_API_KEY no .env)'}`);
-    console.log(`\nPressione Ctrl+C para parar o servidor\n`);
-});
+// Exportar app para Vercel Serverless Functions
+module.exports = app;
+
+// Iniciar servidor apenas localmente (não no Vercel)
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
+        console.log(`📊 Sistema de Montagem de Teto Falso`);
+        console.log(`✓ API disponivel em http://localhost:${PORT}/api`);
+        console.log(`🔒 Seguranca melhorada ativa`);
+        console.log(`🤖 Agente AI ${process.env.OPENAI_API_KEY ? 'configurado' : 'nao configurado (adicione OPENAI_API_KEY no .env)'}`);
+        console.log(`\nPressione Ctrl+C para parar o servidor\n`);
+    });
+}
