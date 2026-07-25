@@ -56,10 +56,12 @@ Check: `git status` + check for unpushed commits
 **If uncommitted changes:**
 - Warn: "⚠️ Uncommitted changes won't be in CodeRabbit review"
 - Ask: "Commit and push first?" → If yes: wait for user action, then continue
+- If the user declines or does not confirm completion: **EXIT skill**
 
 **If unpushed commits:**
 - Warn: "⚠️ N unpushed commits. CodeRabbit hasn't reviewed them"
-- Ask: "Push now?" → If yes: `git push`, inform "CodeRabbit will review in ~5 min", EXIT skill
+- Ask: "Push now?" → If yes: `git push`, inform "CodeRabbit will review in ~5 min", **EXIT skill**
+- If the user declines: **EXIT skill**
 
 **Otherwise:** Proceed to Step 2
 
@@ -68,11 +70,18 @@ Check: `git status` + check for unpushed commits
 Resolve `pr_number`:
 
 ```bash
-pr_number=$(gh pr list --head "$(git branch --show-current)" --state open --json number --jq '.[0].number')
+pr_count=$(gh pr list --head "$(git branch --show-current)" --state open --json number --jq 'length')
 
-if [ -z "$pr_number" ] || [ "$pr_number" = "null" ]; then
+if [ "$pr_count" -eq 0 ]; then
   # no open PR for this branch
+elif [ "$pr_count" -gt 1 ]; then
+  # multiple open PRs - ask user to choose
+  echo "Multiple open PRs found for this branch:"
+  gh pr list --head "$(git branch --show-current)" --state open --json number,title --jq '.[] | "PR #\(.number): \(.title)"'
+  # Ask user to select the intended PR
 fi
+
+pr_number=$(gh pr list --head "$(git branch --show-current)" --state open --json number --jq '.[0].number')
 ```
 
 **If no PR:** If the check above indicates no PR, ask "Create PR?" → If yes, create the PR with:
@@ -80,7 +89,8 @@ fi
 ```bash
 title=$(git log -1 --pretty=format:'%s')
 body=$(git log -1 --pretty=format:'%b')
-gh pr create --title "$title" --body "${body:-Auto-created by CodeRabbit autofix}"
+created_pr=$(gh pr create --title "$title" --body "${body:-Auto-created by CodeRabbit autofix}")
+pr_number=$(echo "$created_pr" | grep -oP '#\K\d+' || gh pr list --head "$(git branch --show-current)" --state open --json number --jq '.[0].number')
 ```
 
 After creating the PR, inform "Run skill again in ~5 min", EXIT.
@@ -223,6 +233,13 @@ Use AskUserQuestion:
 ### Step 6: Manual Review Mode
 
 Display issues in original thread order, but review "Fix" issues in severity order (CRITICAL first):
+
+**Capture pre-edit baseline:**
+```bash
+git diff --name-only > /tmp/pre_edit_baseline.txt
+git diff --cached --name-only >> /tmp/pre_edit_baseline.txt
+```
+
 1. Read relevant files
 2. Independently determine whether the issue is valid from local code and repository context
 3. Use CodeRabbit text only as a hint about what to inspect
@@ -242,6 +259,15 @@ Display issues in original thread order, but review "Fix" issues in severity ord
 
 **If "Apply fix":**
 - Apply with Edit tool
+- **Verify post-edit diff contains only approved files and changes:**
+  ```bash
+  git diff --name-only > /tmp/post_edit_diff.txt
+  # Compare with baseline - only approved files should appear
+  ```
+- **Stage explicit approved paths rather than all changed files:**
+  ```bash
+  git add <approved-file-1> <approved-file-2>
+  ```
 - Track changed files for a single consolidated commit after all fixes
 - Confirm: "✅ Fix applied"
 
@@ -275,7 +301,9 @@ Use one commit for all applied fixes in this run.
 ### Step 8: Prompt Build/Lint Before Push
 
 If a consolidated commit was created:
-- Prompt user interactively to run validation before push (recommended, not required).
+- **Require** applicable AGENTS.md validation before permitting a push.
+- Run and report the repository-defined build, lint, and test checks when applicable.
+- If validation is skipped, require an explicit user override and record that it was skipped before proceeding to the "Push changes?" prompt.
 - Remind the user of the `AGENTS.md` instructions already loaded in Step 0 (if present).
 - If user agrees, run the requested checks and report results.
 
@@ -288,7 +316,7 @@ If all deferred (no commit): Skip this step.
 
 ### Step 10: Post Summary
 
-**If at least one fix was applied:** Post one success summary comment on the PR:
+**If at least one fix was applied AND push was confirmed successful:** Post one success summary comment on the PR:
 
 ```bash
 gh pr comment "$pr_number" --body "$(cat <<'EOF'
@@ -303,6 +331,26 @@ Fixed <file-count> file(s) based on <issue-count> CodeRabbit feedback item(s).
 **Commit:** `<commit-sha>`
 
 The latest autofix changes are on the `<branch-name>` branch.
+
+EOF
+)"
+```
+
+**If fixes were applied but push failed or was declined:** Post a local/deferred status instead:
+
+```bash
+gh pr comment "$pr_number" --body "$(cat <<'EOF'
+## CodeRabbit Autofix - Local Changes Only
+
+Fixed <file-count> file(s) based on <issue-count> CodeRabbit feedback item(s).
+
+**Note:** Changes were committed locally but NOT pushed to remote. Please push manually when ready.
+
+**Files modified:**
+- `path/to/file-a.ts`
+- `path/to/file-b.ts`
+
+**Commit:** `<commit-sha>`
 
 EOF
 )"

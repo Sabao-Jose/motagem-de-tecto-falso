@@ -16,7 +16,10 @@ Options:
   --base <branch>          Base branch for comparison
   --base-commit <commit>   Base commit on current branch for comparison
   --dir <path>             Review only git changes inside this directory
-  --api-key <key>          API key for authentication
+  --api-key <key>          API key for authentication (WARNING: command-line keys
+                           may be exposed through shell history and process listings.
+                           Prefer environment variable CODERABBIT_API_KEY or
+                           authenticated login via `coderabbit auth login`)
   -h, --help               display help for command
 
 Commands:

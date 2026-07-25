@@ -14,19 +14,27 @@ Use this helper when a skill needs thread-aware CodeRabbit PR feedback, not flat
 Get the PR number for the current branch:
 
 ```bash
-pr_number=$(gh pr list --head "$(git branch --show-current)" --state open --json number --jq '.[0].number')
+pr_count=$(gh pr list --head "$(git branch --show-current)" --state open --json number --jq 'length')
 
-if [ -z "$pr_number" ] || [ "$pr_number" = "null" ]; then
+if [ "$pr_count" -eq 0 ]; then
   # no open PR for this branch
+elif [ "$pr_count" -gt 1 ]; then
+  # multiple open PRs - require user to choose
+  echo "ERROR: Multiple open PRs found for this branch. Please specify the intended PR."
+  gh pr list --head "$(git branch --show-current)" --state open --json number,title --jq '.[] | "PR #\(.number): \(.title)"'
+  exit 1
 fi
+
+pr_number=$(gh pr list --head "$(git branch --show-current)" --state open --json number --jq '.[0].number')
 ```
 
-If no PR exists and the user wants one created, derive title/body from the latest commit:
+If no PR exists and the user wants one created, derive title/body from the latest commit and capture the created PR number:
 
 ```bash
 title=$(git log -1 --pretty=format:'%s')
 body=$(git log -1 --pretty=format:'%b')
-gh pr create --title "$title" --body "${body:-Auto-created by CodeRabbit autofix}"
+created_pr=$(gh pr create --title "$title" --body "${body:-Auto-created by CodeRabbit autofix}")
+pr_number=$(echo "$created_pr" | grep -oP '#\K\d+' || gh pr list --head "$(git branch --show-current)" --state open --json number --jq '.[0].number')
 ```
 
 ## 2. Resolve Repository Coordinates
