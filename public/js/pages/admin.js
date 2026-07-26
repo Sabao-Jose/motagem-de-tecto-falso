@@ -660,7 +660,7 @@ export default async function adminPage() {
                             ${item.imagem_url ? `
                                 <img src="${item.imagem_url}" alt="${item.titulo}" style="width: 100%; height: 180px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 0.75rem;">
                             ` : item.video_url ? `
-                                <video src="${item.video_url}" style="width: 100%; height: 180px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 0.75rem;"></video>
+                                <video src="${item.video_url}" controls preload="metadata" playsinline style="width: 100%; height: 180px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 0.75rem; background: #000;"></video>
                             ` : `
                                 <div style="width: 100%; height: 180px; background: var(--gradient-primary); border-radius: var(--radius-lg); margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: white;">🏗️</div>
                             `}

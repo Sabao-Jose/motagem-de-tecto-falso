@@ -58,10 +58,7 @@ export default async function portfolioPage() {
               <img src="${item.imagem_url}" class="portfolio-media" alt="${item.titulo}" style="width: 100%; height: 250px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 1rem; cursor: pointer;">
             ` : item.video_url ? `
               <div style="position: relative;">
-                <video src="${item.video_url}" class="portfolio-media" style="width: 100%; height: 250px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 1rem; cursor: pointer;"></video>
-                <div class="flex-center" style="position: absolute; top: 0; left: 0; right: 0; bottom: 1rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-lg); pointer-events: none;">
-                  <span style="font-size: 3rem; color: white; opacity: 0.8;">▶️</span>
-                </div>
+                <video src="${item.video_url}" class="portfolio-media" controls preload="metadata" playsinline style="width: 100%; height: 250px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 1rem; cursor: pointer; background: #000;"></video>
               </div>
             ` : `
               <div style="width: 100%; height: 250px; background: var(--gradient-primary); border-radius: var(--radius-lg); margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; font-size: 4rem; color: white;">
