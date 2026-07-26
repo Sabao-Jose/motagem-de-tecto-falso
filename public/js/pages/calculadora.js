@@ -1,4 +1,4 @@
-import { render, api, formatCurrency } from '../app.js';
+import { render, api, formatCurrency, showSuccess, showError } from '../app.js';
 import { calcularGesso } from '../calculators/gesso.js';
 import { calcularPVC } from '../calculators/pvc.js';
 import { calcularModular } from '../calculators/modular.js';
@@ -196,13 +196,13 @@ export default async function calculadoraPage() {
       console.log('Saving budget...', servicoData);
       await api.post('/servicos', servicoData);
 
-      alert('Orçamento salvo com sucesso!');
+      showSuccess('Orçamento salvo com sucesso!');
       modal.style.display = "none";
       saveForm.reset();
 
     } catch (error) {
       console.error('Error saving budget:', error);
-      alert('Erro ao salvar orçamento: ' + error.message);
+      showError('Erro ao salvar orçamento: ' + error.message);
     } finally {
       btn.innerText = originalText;
       btn.disabled = false;
@@ -523,6 +523,6 @@ window.salvarOrcamento = function () {
     if (nomeInput) nomeInput.focus();
   } else {
     console.error('Modal de salvar não encontrado!');
-    alert('Erro: Modal de salvar não disponível.');
+    showError('Erro: Modal de salvar não disponível.');
   }
 };

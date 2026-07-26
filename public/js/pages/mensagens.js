@@ -94,7 +94,6 @@ function bindMessageEvents(mensagens, servicos) {
             try {
                 await api.put(`/contact/${id}/read`);
                 showSuccess('Mensagem marcada como lida');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -241,7 +240,6 @@ function bindMessageEvents(mensagens, servicos) {
                     await api.uploadFile(`/contact/${msgId}/reply`, formData, 'PUT');
                     showSuccess('Resposta enviada com sucesso!');
                     modal.remove();
-                    window.location.reload();
                 } catch (error) {
                     showError(error.message);
                 }
@@ -274,7 +272,6 @@ function bindMessageEvents(mensagens, servicos) {
             try {
                 await api.delete(`/contact/${id}`);
                 showSuccess('Mensagem excluída');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }

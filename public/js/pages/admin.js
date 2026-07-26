@@ -1248,7 +1248,6 @@ export default async function adminPage() {
         try {
             await api.post('/usuarios', data);
             showSuccess('Utilizador criado com sucesso!');
-            window.location.reload();
         } catch (error) {
             showError(error.message);
         }
@@ -1281,7 +1280,6 @@ export default async function adminPage() {
                     await api.uploadFile(`/usuarios/${result.id}/foto`, formData);
                 }
                 showSuccess('Funcionário cadastrado com sucesso!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -1362,7 +1360,7 @@ export default async function adminPage() {
             ]);
             doc.autoTable({ head: headers, body: rows, startY: 28, theme: 'grid', headStyles: { fillColor: [16, 185, 129] }, styles: { fontSize: 8 } });
             doc.save('Lista_Clientes.pdf');
-        } catch (e) { console.error(e); alert('Erro ao exportar PDF.'); }
+        } catch (e) { console.error(e); showError('Erro ao exportar PDF.'); }
     };
 
     window.exportarListaClientesExcel = () => {
@@ -1377,7 +1375,7 @@ export default async function adminPage() {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
             XLSX.writeFile(wb, 'Lista_Clientes.xlsx');
-        } catch (e) { console.error(e); alert('Erro ao exportar Excel.'); }
+        } catch (e) { console.error(e); showError('Erro ao exportar Excel.'); }
     };
 
     // ==================== LISTA DE PAGAMENTOS ====================
@@ -1428,7 +1426,7 @@ export default async function adminPage() {
             doc.setFont('helvetica', 'bold');
             doc.text(`TOTAL RECEBIDO: ${formatCurrency(totalPago)}  |  TOTAL PENDENTE: ${formatCurrency(totalPendente)}`, 14, finalY);
             doc.save('Lista_Pagamentos.pdf');
-        } catch (e) { console.error(e); alert('Erro ao exportar PDF.'); }
+        } catch (e) { console.error(e); showError('Erro ao exportar PDF.'); }
     };
 
     window.exportarListaPagamentosExcel = () => {
@@ -1443,7 +1441,7 @@ export default async function adminPage() {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Pagamentos');
             XLSX.writeFile(wb, 'Lista_Pagamentos.xlsx');
-        } catch (e) { console.error(e); alert('Erro ao exportar Excel.'); }
+        } catch (e) { console.error(e); showError('Erro ao exportar Excel.'); }
     };
 
     // ==================== LISTA DE PEDIDOS ====================
@@ -1492,7 +1490,7 @@ export default async function adminPage() {
             });
             doc.autoTable({ head: headers, body: rows, startY: 28, theme: 'grid', headStyles: { fillColor: [139, 92, 246] }, styles: { fontSize: 7 } });
             doc.save('Lista_Pedidos.pdf');
-        } catch (e) { console.error(e); alert('Erro ao exportar PDF.'); }
+        } catch (e) { console.error(e); showError('Erro ao exportar PDF.'); }
     };
 
     window.exportarListaPedidosExcel = () => {
@@ -1510,7 +1508,7 @@ export default async function adminPage() {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
             XLSX.writeFile(wb, 'Lista_Pedidos.xlsx');
-        } catch (e) { console.error(e); alert('Erro ao exportar Excel.'); }
+        } catch (e) { console.error(e); showError('Erro ao exportar Excel.'); }
     };
 
     // Fechar modais ao clicar fora
@@ -1729,7 +1727,7 @@ export default async function adminPage() {
             showSuccess('Recibo restaurado com sucesso!');
             carregarBackupsAgente();
         } catch (e) {
-            alert('Erro ao restaurar: ' + (e.message || 'Erro desconhecido'));
+            showError('Erro ao restaurar: ' + (e.message || 'Erro desconhecido'));
         }
     };
 
@@ -1934,7 +1932,7 @@ export default async function adminPage() {
 
     window.exportarRelatorioAtualAdmin = (tipo) => {
         if (dadosFiltradosAdmin.length === 0) {
-            alert("Nenhum dado encontrado para o período selecionado.");
+            showError("Nenhum dado encontrado para o período selecionado.");
             return;
         }
 
@@ -1955,7 +1953,7 @@ export default async function adminPage() {
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Relatório Admin");
                 XLSX.writeFile(wb, `Relatorio_Admin_${periodoAtualAdmin}.xlsx`);
-            } catch (e) { console.error(e); alert("Erro ao exportar Excel."); }
+            } catch (e) { console.error(e); showError("Erro ao exportar Excel."); }
         } else if (tipo === 'pdf') {
             try {
                 const { jsPDF } = window.jspdf;
@@ -1985,7 +1983,7 @@ export default async function adminPage() {
                 doc.text(`TOTAL FATURADO NO PERÍODO: ${formatCurrency(totalValor)}`, 14, y + 10);
 
                 doc.save(`Relatorio_Admin_${periodoAtualAdmin}.pdf`);
-            } catch (e) { console.error(e); alert("Erro ao exportar PDF."); }
+            } catch (e) { console.error(e); showError("Erro ao exportar PDF."); }
         }
     };
 
@@ -1997,7 +1995,6 @@ export default async function adminPage() {
             try {
                 await api.delete(`/usuarios/${userId}`);
                 showSuccess('Utilizador excluído!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -2012,7 +2009,6 @@ export default async function adminPage() {
             try {
                 await api.delete(`/usuarios/${userId}`);
                 showSuccess('Cliente excluído!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -2027,7 +2023,6 @@ export default async function adminPage() {
             try {
                 await api.delete(`/clientes/${id}`);
                 showSuccess('Cliente satisfeito excluído!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -2041,7 +2036,6 @@ export default async function adminPage() {
             try {
                 await api.put(`/contact/${id}/read`);
                 showSuccess('Mensagem marcada como lida');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -2189,7 +2183,6 @@ export default async function adminPage() {
                     await api.uploadFile(`/contact/${msgId}/reply`, formData, 'PUT');
                     showSuccess('Resposta enviada com sucesso!');
                     modal.remove();
-                    window.location.reload();
                 } catch (error) {
                     showError(error.message);
                 }
@@ -2224,7 +2217,6 @@ export default async function adminPage() {
             try {
                 await api.delete(`/contact/${id}`);
                 showSuccess('Mensagem excluída');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -2348,7 +2340,7 @@ export default async function adminPage() {
             const endereco = document.querySelector(`.input-endereco[data-func-id="${funcId}"]`).value;
             try {
                 await api.put(`/usuarios/${funcId}/dados`, { salario, endereco });
-                showSuccess('Dados guardados!');
+                showSuccess('Dados guardados com sucesso!');
             } catch (error) {
                 showError(error.message);
             }
@@ -2465,7 +2457,6 @@ export default async function adminPage() {
                     }
                     showSuccess('Funcionário actualizado com sucesso!');
                     modal.remove();
-                    window.location.reload();
                 } catch (error) {
                     showError(error.message);
                 }
@@ -2576,7 +2567,6 @@ export default async function adminPage() {
                                     await api.put(`/faltas/${faltaId}/justificar`, { tipo: tipoJust });
                                     showSuccess('Falta justificada!');
                                     modal.remove();
-                                    window.location.reload();
                                 } catch (error) {
                                     showError(error.message);
                                 }
@@ -2586,7 +2576,6 @@ export default async function adminPage() {
                                         await api.delete(`/faltas/${faltaId}`);
                                         showSuccess('Falta removida!');
                                         modal.remove();
-                                        window.location.reload();
                                     } catch (error) {
                                         showError(error.message);
                                     }
@@ -2600,7 +2589,6 @@ export default async function adminPage() {
                                     await api.put(`/faltas/${faltaId}/justificar`, { justificada: 0 });
                                     showSuccess('Justificação revertida!');
                                     modal.remove();
-                                    window.location.reload();
                                 } catch (error) {
                                     showError(error.message);
                                 }
@@ -2610,7 +2598,6 @@ export default async function adminPage() {
                                         await api.delete(`/faltas/${faltaId}`);
                                         showSuccess('Falta removida!');
                                         modal.remove();
-                                        window.location.reload();
                                     } catch (error) {
                                         showError(error.message);
                                     }
@@ -2680,7 +2667,6 @@ export default async function adminPage() {
                                     showSuccess('Falta registada!');
                                     subModal.remove();
                                     modal.remove();
-                                    window.location.reload();
                                 } catch (error) {
                                     showError(error.message);
                                 }
@@ -2701,7 +2687,6 @@ export default async function adminPage() {
                             await api.put(`/faltas/${b.dataset.faltaId}/justificar`, { tipo: tipoJust });
                             showSuccess('Falta justificada!');
                             modal.remove();
-                            window.location.reload();
                         } catch (error) {
                             showError(error.message);
                         }
@@ -2717,7 +2702,6 @@ export default async function adminPage() {
                             await api.delete(`/faltas/${b.dataset.faltaId}`);
                             showSuccess('Falta removida!');
                             modal.remove();
-                            window.location.reload();
                         } catch (error) {
                             showError(error.message);
                         }
@@ -2801,7 +2785,6 @@ export default async function adminPage() {
                         await api.put(`/faltas/${b.dataset.faltaId}/justificar`, { tipo: tipoJust });
                         showSuccess('Falta justificada!');
                         modal.remove();
-                        window.location.reload();
                     } catch (error) {
                         showError(error.message);
                     }
@@ -2917,7 +2900,6 @@ export default async function adminPage() {
             try {
                 await api.put(`/clientes/${clienteId}/verificar`);
                 showSuccess('Cliente verificado!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -2932,7 +2914,6 @@ export default async function adminPage() {
             try {
                 await api.put(`/servicos/${servicoId}/pagar`);
                 showSuccess('Pagamento registado!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -3009,7 +2990,6 @@ export default async function adminPage() {
 
         if (erros === 0) {
             showSuccess(`${guardados} funcionário(s) actualizado(s) com sucesso!`);
-            setTimeout(() => window.location.reload(), 1000);
         } else {
             showError(`${erros} erro(s) ao guardar. ${guardados} guardado(s) com sucesso.`);
         }
@@ -3232,7 +3212,6 @@ export default async function adminPage() {
             try {
                 await api.delete(`/portfolio/${id}`);
                 showSuccess('Projecto excluído!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -3253,7 +3232,6 @@ export default async function adminPage() {
             try {
                 await api.uploadFile(`/portfolio/${id}`, formData, 'PUT');
                 showSuccess('Projecto actualizado!');
-                window.location.reload();
             } catch (error) {
                 showError(error.message);
             }
@@ -3490,7 +3468,6 @@ export default async function adminPage() {
             try {
                 await api.put(`/pedidos-portfolio/${id}/status`, { status: 'visto' });
                 showSuccess('Pedido marcado como visto!');
-                window.location.reload();
             } catch (err) {
                 showError('Erro: ' + (err.message || 'Tente novamente'));
             }
@@ -3526,7 +3503,6 @@ export default async function adminPage() {
             try {
                 await api.delete(`/pedidos-portfolio/${id}`);
                 showSuccess('Pedido eliminado!');
-                window.location.reload();
             } catch (err) {
                 showError('Erro: ' + (err.message || 'Tente novamente'));
             }

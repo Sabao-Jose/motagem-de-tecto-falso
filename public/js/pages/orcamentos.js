@@ -1,4 +1,4 @@
-import { render, api, formatCurrency } from '../app.js';
+import { render, api, formatCurrency, showSuccess, showError } from '../app.js';
 import { gerarReciboPDF } from '../utils/pdfGenerator.js';
 
 export default async function orcamentosPage() {
@@ -9,7 +9,7 @@ export default async function orcamentosPage() {
         servicos = response.servicos || [];
     } catch (error) {
         console.error('Error loading budgets:', error);
-        alert('Erro ao carregar histórico de orçamentos.');
+        showError('Erro ao carregar histórico de orçamentos.');
     }
 
     let searchTerm = '';
@@ -336,7 +336,7 @@ export default async function orcamentosPage() {
             doc.save('Lista_Orcamentos.pdf');
         } catch (e) {
             console.error(e);
-            alert('Erro ao exportar PDF. Verifique se a biblioteca jsPDF esta carregada.');
+            showError('Erro ao exportar PDF. Verifique se a biblioteca jsPDF esta carregada.');
         }
     };
 
@@ -361,7 +361,7 @@ export default async function orcamentosPage() {
             XLSX.writeFile(wb, 'Lista_Orcamentos.xlsx');
         } catch (e) {
             console.error(e);
-            alert('Erro ao exportar Excel. Verifique se a biblioteca XLSX esta carregada.');
+            showError('Erro ao exportar Excel. Verifique se a biblioteca XLSX esta carregada.');
         }
     };
 
@@ -388,11 +388,11 @@ export default async function orcamentosPage() {
             await api.delete(`/servicos/${id}`);
             servicos = servicos.filter(s => s.id !== id);
             document.getElementById('orcamentos-table-container').innerHTML = renderTable();
-            // Re-bind events after re-render
             bindEvents();
+            showSuccess('Orçamento apagado com sucesso!');
         } catch (error) {
             console.error('Error deleting:', error);
-            alert('Erro ao apagar orçamento: ' + error.message);
+            showError('Erro ao apagar orçamento: ' + error.message);
         }
     };
 
@@ -441,10 +441,10 @@ export default async function orcamentosPage() {
             document.getElementById('editModal').style.display = 'none';
             document.getElementById('orcamentos-table-container').innerHTML = renderTable();
             bindEvents();
-            alert('Orçamento atualizado com sucesso!');
+            showSuccess('Orçamento atualizado com sucesso!');
         } catch (error) {
             console.error('Error updating:', error);
-            alert('Erro ao atualizar orçamento: ' + error.message);
+            showError('Erro ao atualizar orçamento: ' + error.message);
         } finally {
             btn.textContent = '💾 Salvar Alterações';
             btn.disabled = false;
@@ -578,7 +578,7 @@ export default async function orcamentosPage() {
 
     window.exportarRelatorioAtual = (tipo) => {
         if (dadosFiltrados.length === 0) {
-            alert("Nenhum dado encontrado para o período selecionado.");
+            showError("Nenhum dado encontrado para o período selecionado.");
             return;
         }
 
@@ -599,7 +599,7 @@ export default async function orcamentosPage() {
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Relatório");
                 XLSX.writeFile(wb, `Relatorio_${periodoAtual}.xlsx`);
-            } catch (e) { console.error(e); alert("Erro ao exportar Excel."); }
+            } catch (e) { console.error(e); showError("Erro ao exportar Excel."); }
         } else if (tipo === 'pdf') {
             try {
                 const { jsPDF } = window.jspdf;
@@ -629,7 +629,7 @@ export default async function orcamentosPage() {
                 doc.text(`TOTAL FATURADO NO PERÍODO: ${formatCurrency(totalValor)}`, 14, y + 10);
                 
                 doc.save(`Relatorio_${periodoAtual}.pdf`);
-            } catch (e) { console.error(e); alert("Erro ao exportar PDF."); }
+            } catch (e) { console.error(e); showError("Erro ao exportar PDF."); }
         }
     };
 
@@ -750,10 +750,10 @@ export default async function orcamentosPage() {
 
             fecharEditarMateriaisModal();
             document.getElementById('orcamentos-table-container').innerHTML = renderTable();
-            alert('Materiais atualizados com sucesso!');
+            showSuccess('Materiais atualizados com sucesso!');
         } catch (error) {
             console.error('Error updating materials:', error);
-            alert('Erro ao atualizar materiais: ' + error.message);
+            showError('Erro ao atualizar materiais: ' + error.message);
         }
     };
 

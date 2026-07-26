@@ -396,7 +396,24 @@ function showError(message) {
 }
 
 function showSuccess(message) {
-    showToast(message, 'success');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-sucesso-overlay';
+    overlay.innerHTML = `
+        <div class="modal-sucesso-box">
+            <div class="modal-sucesso-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            <div class="modal-sucesso-msg">${message}</div>
+            <button class="modal-sucesso-btn" id="modalSucessoOk">OK</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#modalSucessoOk').addEventListener('click', () => {
+        overlay.remove();
+        window.location.reload();
+    });
 }
 
 function formatCurrency(value) {

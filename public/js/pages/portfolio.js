@@ -208,11 +208,10 @@ export default async function portfolioPage() {
       if (confirm('Tem certeza que deseja excluir este projeto do portfólio?')) {
         try {
           await api.delete(`/portfolio/${id}`);
-          alert('Projeto excluído com sucesso!');
-          window.location.reload();
+          showSuccess('Projecto apagado com sucesso!');
         } catch (error) {
           console.error('Error deleting:', error);
-          alert('Erro ao excluir projeto');
+          showError('Erro ao excluir projeto');
         }
       }
     });
@@ -278,11 +277,10 @@ export default async function portfolioPage() {
 
       try {
         await api.uploadFile('/portfolio', formData);
-        alert('Projeto adicionado com sucesso!');
-        window.location.reload();
+        showSuccess('Projecto adicionado com sucesso!');
       } catch (error) {
         console.error('Error uploading:', error);
-        alert('Erro ao adicionar projeto');
+        showError('Erro ao adicionar projeto');
       }
     });
   }

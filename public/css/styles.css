@@ -1663,3 +1663,90 @@ body.page-login .footer {
   100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
+/* ==================== MODAL SUCESSO ==================== */
+.modal-sucesso-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.25s ease;
+}
+
+.modal-sucesso-box {
+  background: var(--white, #fff);
+  border-radius: 16px;
+  padding: 2.5rem 2rem 2rem;
+  text-align: center;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255,255,255,0.1);
+  animation: modalSucessoPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSucessoPop {
+  0%   { opacity: 0; transform: scale(0.7) translateY(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-sucesso-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.35);
+  animation: iconPulse 0.6s ease 0.3s both;
+}
+
+@keyframes iconPulse {
+  0%   { transform: scale(0); }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.modal-sucesso-icon svg {
+  width: 36px;
+  height: 36px;
+}
+
+.modal-sucesso-msg {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--dark, #1e293b);
+  margin-bottom: 1.5rem;
+  line-height: 1.4;
+}
+
+.modal-sucesso-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+  padding: 0.7rem 2.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+}
+
+.modal-sucesso-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5);
+}
+
+.modal-sucesso-btn:active {
+  transform: translateY(0);
+}
+
