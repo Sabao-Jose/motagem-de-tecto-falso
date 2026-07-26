@@ -31,8 +31,14 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
 
-// Rate limiter global apenas nas rotas da API (nao afeta imagens, CSS, JS)
-app.use('/api', security.generalLimiter);
+// Rate limiter global apenas nas rotas da API com escrita (nao afeta rotas de leitura GET)
+app.use('/api', (req, res, next) => {
+    // So aplica rate limiter em rotas POST, PUT, DELETE (escritas)
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        return security.generalLimiter(req, res, next);
+    }
+    next();
+});
 
 // Criar pasta de uploads se não existir
 if (!fs.existsSync('uploads')) {
