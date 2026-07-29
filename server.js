@@ -9,6 +9,7 @@ const nodemailer = require('nodemailer');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const db = require('./database');
+const blob = require('./blob-upload');
 
 require('dotenv').config();
 
@@ -29,10 +30,9 @@ app.use(cookieParser());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
-// No Vercel, tambem serve os uploads do /tmp (para ficheiros enviados em runtime)
-if (process.env.VERCEL) {
-    app.use('/uploads', express.static('/tmp/uploads'));
+// No ambiente local, serve ficheiros da pasta uploads/
+if (!blob.isVercel) {
+    app.use('/uploads', express.static('uploads'));
 }
 
 // Rate limiter global apenas nas rotas da API com escrita (nao afeta rotas de leitura GET)
@@ -44,24 +44,8 @@ app.use('/api', (req, res, next) => {
     next();
 });
 
-// Em Vercel, usa /tmp/uploads/ (unico diretorio gravavel em serverless)
-const UPLOAD_DIR = process.env.VERCEL ? '/tmp/uploads' : 'uploads';
-
-// Criar pasta de uploads se não existir
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-// Configuração do Multer para upload de arquivos
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, UPLOAD_DIR);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Configuração do Multer para upload de arquivos (usa memoryStorage para funcionar em Vercel)
+const storage = multer.memoryStorage();
 
 const upload = multer({
     storage: storage,
@@ -338,24 +322,28 @@ app.put('/api/usuarios/:id/dados', autenticarToken, verificarRole('admin'), (req
 });
 
 // Upload foto do funcionário
-app.post('/api/usuarios/:id/foto', autenticarToken, verificarRole('admin'), (req, res) => {
-    upload.single('foto')(req, res, function (err) {
+app.post('/api/usuarios/:id/foto', autenticarToken, verificarRole('admin'), async (req, res) => {
+    upload.single('foto')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
         }
         if (!req.file) {
             return res.status(400).json({ error: 'Nenhuma foto enviada' });
         }
-        const fotoUrl = '/uploads/' + req.file.filename;
-        db.run(
-            'UPDATE usuarios SET foto = ? WHERE id = ?',
-            [fotoUrl, req.params.id],
-            function (err) {
-                if (err) return res.status(500).json({ error: err.message });
-                if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
-                res.json({ foto: fotoUrl, message: 'Foto actualizada com sucesso!' });
-            }
-        );
+        try {
+            const { url } = await blob.uploadFile(req.file.buffer, req.file.originalname, 'fotos');
+            db.run(
+                'UPDATE usuarios SET foto = ? WHERE id = ?',
+                [url, req.params.id],
+                function (err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+                    res.json({ foto: url, message: 'Foto actualizada com sucesso!' });
+                }
+            );
+        } catch (uploadErr) {
+            res.status(500).json({ error: 'Erro ao fazer upload: ' + uploadErr.message });
+        }
     });
 });
 
@@ -682,8 +670,8 @@ app.put('/api/contact/:id/read', autenticarToken, verificarRole('admin', 'funcio
 });
 
 // Responder mensagem (com anexo opcional) - envia email ao cliente
-app.put('/api/contact/:id/reply', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
-    upload.single('anexo')(req, res, function (err) {
+app.put('/api/contact/:id/reply', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+    upload.single('anexo')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
         }
@@ -695,7 +683,12 @@ app.put('/api/contact/:id/reply', autenticarToken, verificarRole('admin', 'funci
 
         let anexo_url = null;
         if (req.file) {
-            anexo_url = '/uploads/' + req.file.filename;
+            try {
+                const { url } = await blob.uploadFile(req.file.buffer, req.file.originalname, 'anexos');
+                anexo_url = url;
+            } catch (uploadErr) {
+                return res.status(500).json({ error: 'Erro ao fazer upload do anexo: ' + uploadErr.message });
+            }
         }
 
         // Buscar mensagem original para obter email do cliente
@@ -774,26 +767,27 @@ app.get('/api/portfolio', (req, res) => {
 });
 
 // Adicionar projeto ao portfólio
-app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
-    upload.single('arquivo')(req, res, function (err) {
+app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+    upload.single('arquivo')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
         }
 
         const { titulo, descricao, tipo_servico } = req.body;
-        let arquivo_url = null;
         let imagem_url = null;
         let video_url = null;
 
         if (req.file) {
-            arquivo_url = '/uploads/' + req.file.filename;
-
-            // Determinar se é imagem ou vídeo
-            const ext = path.extname(req.file.filename).toLowerCase();
-            if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
-                imagem_url = arquivo_url;
-            } else {
-                video_url = arquivo_url;
+            try {
+                const { url } = await blob.uploadFile(req.file.buffer, req.file.originalname, 'portfolio');
+                const ext = path.extname(req.file.originalname).toLowerCase();
+                if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+                    imagem_url = url;
+                } else {
+                    video_url = url;
+                }
+            } catch (uploadErr) {
+                return res.status(500).json({ error: 'Erro ao fazer upload: ' + uploadErr.message });
             }
         }
 
@@ -812,27 +806,31 @@ app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'
 });
 
 // Atualizar projeto do portfólio
-app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
-    upload.single('arquivo')(req, res, function (err) {
+app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+    upload.single('arquivo')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
         }
 
         const { titulo, descricao, tipo_servico } = req.body;
-        let imagem_url = null;
-        let video_url = null;
+        let newImagem = null;
+        let newVideo = null;
 
         if (req.file) {
-            const arquivo_url = '/uploads/' + req.file.filename;
-            const ext = path.extname(req.file.filename).toLowerCase();
-            if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
-                imagem_url = arquivo_url;
-            } else {
-                video_url = arquivo_url;
+            try {
+                const { url } = await blob.uploadFile(req.file.buffer, req.file.originalname, 'portfolio');
+                const ext = path.extname(req.file.originalname).toLowerCase();
+                if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+                    newImagem = url;
+                } else {
+                    newVideo = url;
+                }
+            } catch (uploadErr) {
+                return res.status(500).json({ error: 'Erro ao fazer upload: ' + uploadErr.message });
             }
         }
 
-        db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], (err, row) => {
+        db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], async (err, row) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
             }
@@ -840,17 +838,15 @@ app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionar
                 return res.status(404).json({ error: 'Projeto não encontrado' });
             }
 
-            const finalImagem = imagem_url || row.imagem_url;
-            const finalVideo = video_url || row.video_url;
+            const finalImagem = newImagem || row.imagem_url;
+            const finalVideo = newVideo || row.video_url;
 
-            // Deletar arquivo antigo se foi substituído
-            if (imagem_url && row.imagem_url) {
-                const oldFile = path.join(UPLOAD_DIR, path.basename(row.imagem_url));
-                if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+            // Deletar arquivo antigo do Blob se foi substituído
+            if (newImagem && row.imagem_url) {
+                await blob.deleteFile(row.imagem_url);
             }
-            if (video_url && row.video_url) {
-                const oldFile = path.join(UPLOAD_DIR, path.basename(row.video_url));
-                if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+            if (newVideo && row.video_url) {
+                await blob.deleteFile(row.video_url);
             }
 
             db.run(
@@ -870,19 +866,16 @@ app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionar
 // Deletar projeto do portfólio
 app.delete('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
     // Buscar arquivo para deletar
-    db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], (err, row) => {
+    db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], async (err, row) => {
         if (err) {
             res.status(500).json({ error: err.message });
             return;
         }
 
-        // Deletar arquivo físico se existir
-        if (row && (row.imagem_url || row.video_url)) {
-            const fileName = path.basename(row.imagem_url || row.video_url);
-            const filePath = path.join(UPLOAD_DIR, fileName);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            }
+        // Deletar arquivo do Blob se existir
+        if (row) {
+            if (row.imagem_url) await blob.deleteFile(row.imagem_url);
+            if (row.video_url) await blob.deleteFile(row.video_url);
         }
 
         // Deletar do banco
