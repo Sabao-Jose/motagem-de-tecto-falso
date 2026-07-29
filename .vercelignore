@@ -1,0 +1,9 @@
+uploads/
+database.db
+database.db-shm
+database.db-wal
+*.log
+.env
+.env.local
+.gitignore
+README.md
