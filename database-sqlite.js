@@ -2,7 +2,10 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const dbPath = path.join(__dirname, 'database.db');
+// No Vercel, usar /tmp (unico diretorio gravavel), localmente usar pasta do projeto
+const dbPath = process.env.VERCEL 
+  ? '/tmp/database.db' 
+  : path.join(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath);
 
 // Inicializar banco de dados
