@@ -1709,7 +1709,10 @@ export default async function adminPage() {
                     <div style="font-size: 0.65rem; color: #92400e; margin-bottom: 0.5rem;">
                       🗑️ Apagado por ${b.deleted_by_nome || 'N/A'} em ${data}
                     </div>
-                    <button class="btn btn-sm" style="background: #10b981; color: white; font-size: 0.7rem; padding: 0.3rem 0.8rem;" onclick="restaurarBackupAgente(${b.id})">♻️ Restaurar</button>
+                    <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem;">
+                      <button class="btn btn-sm" style="background: #10b981; color: white; font-size: 0.7rem; padding: 0.3rem 0.8rem;" onclick="restaurarBackupAgente(${b.id})">♻️ Restaurar</button>
+                      <button class="btn btn-sm" style="background: #ef4444; color: white; font-size: 0.7rem; padding: 0.3rem 0.8rem;" onclick="apagarBackupAgente(${b.id})">🗑️ Apagar</button>
+                    </div>
                   </div>
                 `;
             });
@@ -1728,6 +1731,18 @@ export default async function adminPage() {
             carregarBackupsAgente();
         } catch (e) {
             showError('Erro ao restaurar: ' + (e.message || 'Erro desconhecido'));
+        }
+    };
+
+    window.apagarBackupAgente = async (backupId) => {
+        if (!confirm('⚠️ ATENÇÃO: Isto irá apagar este backup permanentemente.\n\nEsta ação é IRREVERSÍVEL. Deseja continuar?')) return;
+        if (!confirm('Tem ABSOLUTA certeza? O backup será apagado para sempre.')) return;
+        try {
+            await api.delete(`/servicos-backup/${backupId}`);
+            showSuccess('Backup apagado permanentemente!');
+            carregarBackupsAgente();
+        } catch (e) {
+            showError('Erro ao apagar: ' + (e.message || 'Erro desconhecido'));
         }
     };
 

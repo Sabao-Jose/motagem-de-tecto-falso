@@ -1,13 +1,12 @@
 node_modules/
 database.db
+database.db-shm
+database.db-wal
 uploads/*
 !uploads/.gitkeep
-.env
-*.log
-.DS_Store
-
 .env
 .env.local
 logs/
 *.log
+.DS_Store
 

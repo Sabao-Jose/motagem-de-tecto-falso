@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3001/api';
+const API_URL = window.location.origin + '/api';
 const TOKEN_KEY = 'teto_falso_token';
 const REFRESH_TOKEN_KEY = 'teto_falso_refresh_token';
 const USER_KEY = 'teto_falso_user';

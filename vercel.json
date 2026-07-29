@@ -8,6 +8,10 @@
     {
       "src": "public/**",
       "use": "@vercel/static"
+    },
+    {
+      "src": "uploads/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -17,7 +21,7 @@
     },
     {
       "src": "/uploads/(.*)",
-      "dest": "/server.js"
+      "dest": "/uploads/$1"
     },
     {
       "src": "/(.*)",

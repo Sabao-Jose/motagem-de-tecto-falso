@@ -1,6 +1,6 @@
 import { render, showError, showSuccess } from '../app.js';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = window.location.origin + '/api';
 
 export default async function contatoPage() {
   render(`

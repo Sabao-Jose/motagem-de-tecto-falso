@@ -20,6 +20,9 @@ export default async function calculadoraPage() {
     console.error('Error loading prices:', error);
   }
 
+  // Armazenar precos globalmente para recálculos ao editar área
+  window.currentPrecos = precos;
+
   console.log('Rendering calculator page...');
   render(`
     <div class="container">
@@ -313,8 +316,9 @@ function renderResultado() {
         📊 Resultado do Cálculo
       </h3>
       
-      <div style="margin-bottom: 1.5rem;">
-        <p style="color: var(--gray);"><strong>Área:</strong> ${area.toFixed(2)} m²</p>
+      <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <p style="color: var(--gray); margin: 0;"><strong>Área:</strong> <span id="area-display">${area.toFixed(2)}</span> m²</p>
+        <button class="btn btn-outline btn-sm" onclick="editarArea()" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">✏️ Editar Área</button>
       </div>
 
       <h4 style="font-weight: 600; margin-bottom: 1rem;">Materiais Necessários:</h4>
@@ -462,6 +466,118 @@ window.removerItem = function (btn) {
 }
 
 window.cancelarEdicao = function () {
+  renderResultado();
+}
+
+window.editarArea = function () {
+  const { area } = window.currentCalculation;
+  const areaDisplay = document.getElementById('area-display');
+  if (!areaDisplay) return;
+
+  // Substituir o texto por um campo de input inline
+  const parent = areaDisplay.parentElement;
+  parent.innerHTML = `
+    <span style="color: var(--gray);"><strong>Área:</strong></span>
+    <input type="number" id="area-edit-input" class="form-input" value="${area}" step="0.01" min="0.01"
+      style="width: 120px; display: inline-block; padding: 0.25rem 0.5rem; font-size: 0.95rem;">
+    <span style="color: var(--gray);">m²</span>
+    <button class="btn btn-primary btn-sm" onclick="salvarArea()" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">✅ Confirmar</button>
+    <button class="btn btn-outline btn-sm" onclick="cancelarEdicaoArea()" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">❌ Cancelar</button>
+  `;
+
+  document.getElementById('area-edit-input').focus();
+  document.getElementById('area-edit-input').select();
+}
+
+window.cancelarEdicaoArea = function () {
+  renderResultado();
+}
+
+window.salvarArea = function () {
+  const input = document.getElementById('area-edit-input');
+  if (!input) return;
+
+  const novaArea = parseFloat(input.value);
+  if (!novaArea || novaArea <= 0) {
+    showError('Insira uma área válida maior que zero.');
+    return;
+  }
+
+  const { tipo, area: areaAnterior, materiais: materiaisAtuais } = window.currentCalculation;
+  const precos = window.currentPrecos || {};
+  const precosTipo = precos[tipo] || {};
+
+  const diferencaArea = novaArea - areaAnterior;
+
+  if (Math.abs(diferencaArea) < 0.001) {
+    // Área não mudou, apenas fechar o editor
+    renderResultado();
+    return;
+  }
+
+  // Calcular incremento para a diferença de área (usar valor absoluto para quantidade)
+  const areaCalculo = Math.abs(diferencaArea);
+  let resultadoIncremento;
+  switch (tipo) {
+    case 'gesso':
+      resultadoIncremento = calcularGesso(areaCalculo, precosTipo);
+      break;
+    case 'pvc':
+      resultadoIncremento = calcularPVC(areaCalculo, precosTipo);
+      break;
+    case 'modular':
+      resultadoIncremento = calcularModular(areaCalculo, precosTipo);
+      break;
+    default:
+      showError('Tipo de teto desconhecido.');
+      return;
+  }
+
+  // Se a área diminuiu, inverter os sinais das quantidades (subtrair)
+  if (diferencaArea < 0) {
+    resultadoIncremento.materiais.forEach(m => {
+      m.quantidade = -m.quantidade;
+      m.total = -m.total;
+    });
+    resultadoIncremento.mao_obra = -resultadoIncremento.mao_obra;
+  }
+
+  // Adicionar o incremento aos materiais existentes (preserva edições manuais)
+  const novosMateriais = materiaisAtuais.map(m => ({ ...m })); // Deep copy
+
+  resultadoIncremento.materiais.forEach(matIncremento => {
+    const existente = novosMateriais.find(m => m.nome === matIncremento.nome);
+    if (existente) {
+      // Material já existe → somar/subtrair a quantidade e recalcular total da linha
+      existente.quantidade = Math.max(0, existente.quantidade + matIncremento.quantidade);
+      existente.total = existente.quantidade * existente.preco_unitario;
+    } else if (matIncremento.quantidade > 0) {
+      // Material novo (apenas se incremento positivo) → adicionar à lista
+      novosMateriais.push({ ...matIncremento });
+    }
+  });
+
+  // Remover materiais que ficaram com quantidade zero
+  const materiaisValidos = novosMateriais.filter(m => m.quantidade > 0);
+
+  const novoTotalMateriais = materiaisValidos.reduce((sum, m) => sum + m.total, 0);
+
+  // Calcular mão de obra proporcional à nova área
+  const taxaMaoObraM2 = areaCalculo > 0
+    ? Math.abs(resultadoIncremento.mao_obra) / areaCalculo
+    : (materiaisAtuais.length > 0 ? window.currentCalculation.mao_obra / areaAnterior : 250);
+  const novaMaoObra = novaArea * taxaMaoObraM2;
+
+  // Atualizar o estado global com valores anteriores + incremento
+  window.currentCalculation = {
+    tipo,
+    area: novaArea,
+    materiais: materiaisValidos,
+    total_materiais: novoTotalMateriais,
+    mao_obra: novaMaoObra,
+    total_geral: novoTotalMateriais + novaMaoObra
+  };
+
   renderResultado();
 }
 

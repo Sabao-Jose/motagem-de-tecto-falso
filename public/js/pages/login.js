@@ -161,7 +161,8 @@ export default async function loginPage() {
         btn.textContent = 'Entrando...';
 
         try {
-            const response = await fetch('http://localhost:3001/api/auth/login', {
+            const apiUrl = window.location.origin + '/api';
+            const response = await fetch(apiUrl + '/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, senha })
@@ -207,7 +208,8 @@ export default async function loginPage() {
         }
 
         try {
-            const response = await fetch('http://localhost:3001/api/auth/register', {
+            const apiUrl = window.location.origin + '/api';
+            const response = await fetch(apiUrl + '/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nome, email, senha, telefone })

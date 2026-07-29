@@ -37,5 +37,9 @@
     "openai": "^6.45.0",
     "sharp": "^0.35.3",
     "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/server-filesystem": "^2026.7.10",
+    "mcp-server-sqlite": "^0.0.2"
   }
 }

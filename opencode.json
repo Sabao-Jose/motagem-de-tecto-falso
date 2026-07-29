@@ -9,5 +9,19 @@
   },
   "skills": {
     "paths": [".opencode/skills"]
+  },
+  "mcp": {
+    "sqlite": {
+      "type": "local",
+      "command": ["node", "node_modules/mcp-server-sqlite/dist/cli.js", "--db", "database.db"],
+      "enabled": true,
+      "timeout": 10000
+    },
+    "filesystem": {
+      "type": "local",
+      "command": ["node", "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "uploads", "public", "."],
+      "enabled": true,
+      "timeout": 10000
+    }
   }
 }

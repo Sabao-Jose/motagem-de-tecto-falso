@@ -30,6 +30,10 @@ app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
+// No Vercel, tambem serve os uploads do /tmp (para ficheiros enviados em runtime)
+if (process.env.VERCEL) {
+    app.use('/uploads', express.static('/tmp/uploads'));
+}
 
 // Rate limiter global apenas nas rotas da API com escrita (nao afeta rotas de leitura GET)
 app.use('/api', (req, res, next) => {
@@ -40,15 +44,18 @@ app.use('/api', (req, res, next) => {
     next();
 });
 
+// Em Vercel, usa /tmp/uploads/ (unico diretorio gravavel em serverless)
+const UPLOAD_DIR = process.env.VERCEL ? '/tmp/uploads' : 'uploads';
+
 // Criar pasta de uploads se não existir
-if (!fs.existsSync('uploads')) {
-    fs.mkdirSync('uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
 // Configuração do Multer para upload de arquivos
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, UPLOAD_DIR);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -838,11 +845,11 @@ app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionar
 
             // Deletar arquivo antigo se foi substituído
             if (imagem_url && row.imagem_url) {
-                const oldFile = path.join(__dirname, row.imagem_url);
+                const oldFile = path.join(UPLOAD_DIR, path.basename(row.imagem_url));
                 if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
             }
             if (video_url && row.video_url) {
-                const oldFile = path.join(__dirname, row.video_url);
+                const oldFile = path.join(UPLOAD_DIR, path.basename(row.video_url));
                 if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
             }
 
@@ -871,7 +878,8 @@ app.delete('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcio
 
         // Deletar arquivo físico se existir
         if (row && (row.imagem_url || row.video_url)) {
-            const filePath = path.join(__dirname, row.imagem_url || row.video_url);
+            const fileName = path.basename(row.imagem_url || row.video_url);
+            const filePath = path.join(UPLOAD_DIR, fileName);
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }
@@ -1196,6 +1204,30 @@ app.get('/api/servicos-backup', autenticarToken, verificarRole('admin'), (req, r
     `, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ backups: rows });
+    });
+});
+
+// Apagar backup permanentemente
+app.delete('/api/servicos-backup/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+    db.get('SELECT * FROM servicos_backup WHERE id = ?', [req.params.id], (err, backup) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!backup) return res.status(404).json({ error: 'Backup não encontrado' });
+
+        db.run('DELETE FROM servicos_backup WHERE id = ?', [req.params.id], function (err2) {
+            if (err2) return res.status(500).json({ error: err2.message });
+
+            // Registar na auditoria
+            const { registrarAuditoria } = require('./middleware/audit');
+            registrarAuditoria(req.user.id, 'backup_apagado_permanentemente', {
+                backup_id: backup.id,
+                original_id: backup.original_id,
+                cliente: backup.cliente_nome,
+                valor: backup.valor_total,
+                tipo: backup.tipo_teto
+            }, req.ip, req.headers['user-agent']);
+
+            res.json({ message: 'Backup apagado permanentemente!' });
+        });
     });
 });
 
