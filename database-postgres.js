@@ -20,6 +20,7 @@ const db = {
   },
 
   // db.run(query, params, callback)
+  // Nota: mantem compatibilidade com this.lastID e this.changes do SQLite
   run: function(query, params, callback) {
     if (typeof params === 'function') {
       callback = params;
@@ -30,10 +31,14 @@ const db = {
       const adapted = adaptQuery(query);
       return sql.query(adapted, params);
     }).then(result => {
-      if (callback) callback(null, { 
-        changes: result.rowCount,
-        lastID: result.rows[0] ? result.rows[0].id : null 
-      });
+      if (callback) {
+        // Emular o comportamento do SQLite: this.lastID e this.changes
+        const ctx = { 
+          lastID: result.rows[0] ? result.rows[0].id : null,
+          changes: result.rowCount
+        };
+        callback.call(ctx, null, ctx);
+      }
     }).catch(err => {
       if (callback) callback(err);
     });
