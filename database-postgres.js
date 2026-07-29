@@ -10,6 +10,14 @@ const bcrypt = require('bcryptjs');
 // Wrapper que emula a API do SQLite
 const db = {
   _initialized: false,
+  _initPromise: null,
+
+  // Aguarda inicializacao antes de executar queries
+  _ensureInit: async function() {
+    if (this._initPromise) {
+      await this._initPromise;
+    }
+  },
 
   // db.run(query, params, callback)
   run: function(query, params, callback) {
@@ -17,17 +25,18 @@ const db = {
       callback = params;
       params = [];
     }
-    const adapted = adaptQuery(query);
-    sql.query(adapted, params)
-      .then(result => {
-        if (callback) callback(null, { 
-          changes: result.rowCount,
-          lastID: result.rows[0] ? result.rows[0].id : null 
-        });
-      })
-      .catch(err => {
-        if (callback) callback(err);
+    // Aguarda inicializacao antes de executar
+    this._ensureInit().then(() => {
+      const adapted = adaptQuery(query);
+      return sql.query(adapted, params);
+    }).then(result => {
+      if (callback) callback(null, { 
+        changes: result.rowCount,
+        lastID: result.rows[0] ? result.rows[0].id : null 
       });
+    }).catch(err => {
+      if (callback) callback(err);
+    });
   },
 
   // db.all(query, params, callback)
@@ -36,14 +45,14 @@ const db = {
       callback = params;
       params = [];
     }
-    const adapted = adaptQuery(query);
-    sql.query(adapted, params)
-      .then(result => {
-        if (callback) callback(null, result.rows);
-      })
-      .catch(err => {
-        if (callback) callback(err);
-      });
+    this._ensureInit().then(() => {
+      const adapted = adaptQuery(query);
+      return sql.query(adapted, params);
+    }).then(result => {
+      if (callback) callback(null, result.rows);
+    }).catch(err => {
+      if (callback) callback(err);
+    });
   },
 
   // db.get(query, params, callback)
@@ -52,14 +61,14 @@ const db = {
       callback = params;
       params = [];
     }
-    const adapted = adaptQuery(query);
-    sql.query(adapted, params)
-      .then(result => {
-        if (callback) callback(null, result.rows[0] || undefined);
-      })
-      .catch(err => {
-        if (callback) callback(err);
-      });
+    this._ensureInit().then(() => {
+      const adapted = adaptQuery(query);
+      return sql.query(adapted, params);
+    }).then(result => {
+      if (callback) callback(null, result.rows[0] || undefined);
+    }).catch(err => {
+      if (callback) callback(err);
+    });
   },
 
   // db.serialize(callback) - no-op for PostgreSQL
@@ -70,18 +79,19 @@ const db = {
   // db.prepare(query) - retorna statement mock
   prepare: function(query) {
     const adapted = adaptQuery(query);
+    const self = this;
     return {
       run: function(...params) {
         // Last param is callback
         const callback = typeof params[params.length - 1] === 'function' ? params.pop() : null;
         const flatParams = params.flat();
-        sql.query(adapted, flatParams)
-          .then(result => {
-            if (callback) callback(null, { changes: result.rowCount });
-          })
-          .catch(err => {
-            if (callback) callback(err);
-          });
+        self._ensureInit().then(() => {
+          return sql.query(adapted, flatParams);
+        }).then(result => {
+          if (callback) callback(null, { changes: result.rowCount });
+        }).catch(err => {
+          if (callback) callback(err);
+        });
       },
       finalize: function() {}
     };
@@ -92,26 +102,32 @@ const db = {
 function adaptQuery(query) {
   let q = query.trim();
   
-  // Remover CHECK constraints (não suportado diretamente)
-  q = q.replace(/CHECK\s*\([^)]+\)/gi, '');
-  
   // INTEGER PRIMARY KEY AUTOINCREMENT -> SERIAL PRIMARY KEY
   q = q.replace(/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
   
-  // Remover INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
+  // Verificar se é INSERT OR IGNORE
+  const isInsertOrIgnore = /^INSERT\s+OR\s+IGNORE/i.test(q);
   q = q.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT');
   
-  // Se é INSERT sem ON CONFLICT, adicionar ON CONFLICT DO NOTHING para tabelas com UNIQUE
-  if (q.match(/^INSERT\s+INTO/i)) {
+  // Se era INSERT OR IGNORE e não tem ON CONFLICT, adicionar ON CONFLICT DO NOTHING
+  if (isInsertOrIgnore && !/ON\s+CONFLICT/i.test(q)) {
     q = q.replace(/;?\s*$/, ' ON CONFLICT DO NOTHING');
   }
   
   // ? placeholder -> $1, $2, etc. (PostgreSQL numbered params)
+  // Substitui apenas fora de strings literais (entre aspas simples)
   let paramIndex = 0;
-  q = q.replace(/\?/g, () => {
-    paramIndex++;
-    return `$${paramIndex}`;
-  });
+  const parts = q.split(/'/);
+  for (let i = 0; i < parts.length; i++) {
+    // Partes pares (índice 0, 2, 4...) estão fora de strings
+    if (i % 2 === 0) {
+      parts[i] = parts[i].replace(/\?/g, () => {
+        paramIndex++;
+        return `$${paramIndex}`;
+      });
+    }
+  }
+  q = parts.join("'");
   
   // CURRENT_TIMESTAMP já funciona no PostgreSQL
   
@@ -146,7 +162,7 @@ async function initDatabase() {
         email TEXT UNIQUE NOT NULL,
         senha TEXT NOT NULL,
         telefone TEXT,
-        role TEXT NOT NULL DEFAULT 'cliente',
+        role TEXT NOT NULL DEFAULT 'cliente' CHECK (role IN ('admin', 'funcionario', 'cliente')),
         cliente_id INTEGER REFERENCES clientes(id),
         verificado INTEGER DEFAULT 0,
         salario REAL DEFAULT 0,
@@ -348,13 +364,19 @@ async function initDatabase() {
       ON CONFLICT (chave) DO NOTHING
     `);
 
-    // Criar admin padrão
-    const adminEmail = 'admin@tetofalso.com';
-    const senhaHash = bcrypt.hashSync('admin123', 10);
-    await sql.query(
-      'INSERT INTO usuarios (nome, email, senha, role) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING',
-      ['Administrador', adminEmail, senhaHash, 'admin']
-    );
+    // Criar admin inicial apenas se credenciais forem fornecidas por ambiente
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminSenha = process.env.ADMIN_PASSWORD;
+    if (adminEmail && adminSenha) {
+      const senhaHash = bcrypt.hashSync(adminSenha, 10);
+      await sql.query(
+        'INSERT INTO usuarios (nome, email, senha, role) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING',
+        ['Administrador', adminEmail, senhaHash, 'admin']
+      );
+      console.log('✓ Admin inicial configurado via variaveis de ambiente');
+    } else {
+      console.warn('⚠ ADMIN_EMAIL/ADMIN_PASSWORD nao definidos: admin inicial nao criado.');
+    }
 
     // Inserir preços padrão
     const precosPadrao = [
@@ -398,7 +420,13 @@ async function initDatabase() {
   }
 }
 
-// Inicializar automaticamente
-initDatabase();
+// Inicializar automaticamente e armazenar promise para concurrency safety
+db._initPromise = initDatabase().catch(err => {
+  console.error('✗ Falha na inicializacao do PostgreSQL:', err.message);
+  throw err;
+});
+
+// Exportar db com promise ready
+db.ready = db._initPromise;
 
 module.exports = db;

@@ -1215,6 +1215,7 @@ app.delete('/api/servicos-backup/:id', autenticarToken, verificarRole('admin'), 
 
         db.run('DELETE FROM servicos_backup WHERE id = ?', [req.params.id], function (err2) {
             if (err2) return res.status(500).json({ error: err2.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Backup nao encontrado ou ja foi apagado' });
 
             // Registar na auditoria
             const { registrarAuditoria } = require('./middleware/audit');

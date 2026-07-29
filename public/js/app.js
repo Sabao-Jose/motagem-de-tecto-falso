@@ -405,10 +405,12 @@ function showSuccess(message) {
                     <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
             </div>
-            <div class="modal-sucesso-msg">${message}</div>
+            <div class="modal-sucesso-msg"></div>
             <button class="modal-sucesso-btn" id="modalSucessoOk">OK</button>
         </div>
     `;
+    // Inserir mensagem como textContent para evitar XSS
+    overlay.querySelector('.modal-sucesso-msg').textContent = message;
     document.body.appendChild(overlay);
     overlay.querySelector('#modalSucessoOk').addEventListener('click', () => {
         overlay.remove();

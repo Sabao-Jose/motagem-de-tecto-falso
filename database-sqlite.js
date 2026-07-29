@@ -1,4 +1,4 @@
-﻿const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
@@ -19,7 +19,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de utilizadores (autentica├º├úo)
+  // Tabela de utilizadores (autenticação)
   db.run(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +34,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de servi├ºos realizados
+  // Tabela de serviços realizados
   db.run(`
     CREATE TABLE IF NOT EXISTS servicos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +56,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de portf├│lio
+  // Tabela de portfólio
   db.run(`
     CREATE TABLE IF NOT EXISTS portfolio (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,7 +69,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de pedidos de portf├│lio (cliente envia modelo que gostou ao admin)
+  // Tabela de pedidos de portfólio (cliente envia modelo que gostou ao admin)
   db.run(`
     CREATE TABLE IF NOT EXISTS pedidos_portfolio (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +90,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de configura├º├╡es
+  // Tabela de configurações
   db.run(`
     CREATE TABLE IF NOT EXISTS configuracoes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,7 +113,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de faltas de funcion├írios
+  // Tabela de faltas de funcionários
   db.run(`
     CREATE TABLE IF NOT EXISTS faltas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,7 +126,7 @@ db.serialize(() => {
     )
   `);
 
-  // Adicionar colunas em usuarios se n├úo existirem
+  // Adicionar colunas em usuarios se não existirem
   const addColumnIfNotExists = (table, column, def) => {
     db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`, (err) => {
       if (err && !err.message.includes('duplicate column')) {
@@ -150,7 +150,7 @@ db.serialize(() => {
   addColumnIfNotExists('usuarios', 'tentativas_login', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('usuarios', 'bloqueado_ate', 'DATETIME');
 
-  // Tabela de backup de servi├ºos apagados (copia de seguran├ºa)
+  // Tabela de backup de serviços apagados (copia de segurança)
   db.run(`
     CREATE TABLE IF NOT EXISTS servicos_backup (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -210,21 +210,21 @@ db.serialize(() => {
   db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_acao ON audit_logs(acao)');
   db.run('CREATE INDEX IF NOT EXISTS idx_ai_conversations_usuario ON ai_conversations(usuario_id)');
 
-  // Adicionar coluna pago em servicos se n├úo existir
+  // Adicionar coluna pago em servicos se não existir
   db.run("ALTER TABLE servicos ADD COLUMN pago INTEGER DEFAULT 0", (err) => {
     if (err && !err.message.includes('duplicate column')) {
       console.error('Erro ao adicionar coluna pago:', err.message);
     }
   });
 
-  // Adicionar colunas de resposta em contact_messages se n├úo existirem
+  // Adicionar colunas de resposta em contact_messages se não existirem
   addColumnIfNotExists('contact_messages', 'resposta', 'TEXT');
   addColumnIfNotExists('contact_messages', 'respondida', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('contact_messages', 'updated_at', 'DATETIME');
   addColumnIfNotExists('contact_messages', 'resposta_anexo', 'TEXT');
   addColumnIfNotExists('contact_messages', 'resposta_orcamento_id', 'INTEGER');
 
-  // Tabela de pre├ºos de materiais (com unique para evitar duplicados)
+  // Tabela de preços de materiais (com unique para evitar duplicados)
   db.run(`
     CREATE TABLE IF NOT EXISTS precos_materiais (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -237,13 +237,13 @@ db.serialize(() => {
     )
   `);
 
-  // Inserir configura├º├╡es padr├úo
+  // Inserir configurações padrão
   db.run(`
     INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES 
     ('empresa_nome', 'Teto Falso Sabao'),
     ('empresa_telefone', '+258 XX XXX XXXX'),
     ('empresa_email', 'contato@tetofalso.com'),
-    ('empresa_endereco', 'Maputo, Mo├ºambique'),
+    ('empresa_endereco', 'Maputo, Moçambique'),
     ('margem_seguranca', '10'),
     ('smtp_host', ''),
     ('smtp_port', '587'),
@@ -253,19 +253,25 @@ db.serialize(() => {
     ('admin_email', 'tectofalsosabao@gmail.com')
   `);
 
-  // Criar admin padr├úo se n├úo existir (usando INSERT OR IGNORE para ser s├¡ncrono no serialize)
-  const adminEmail = 'admin@tetofalso.com';
-  const senhaHash = bcrypt.hashSync('admin123', 10);
-  db.run(
-    `INSERT OR IGNORE INTO usuarios (nome, email, senha, role) VALUES (?, ?, ?, ?)`,
-    ['Administrador', adminEmail, senhaHash, 'admin']
-  );
+  // Criar admin inicial apenas se credenciais forem fornecidas por ambiente
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminSenha = process.env.ADMIN_PASSWORD;
+  if (adminEmail && adminSenha) {
+    const senhaHash = bcrypt.hashSync(adminSenha, 10);
+    db.run(
+      `INSERT OR IGNORE INTO usuarios (nome, email, senha, role) VALUES (?, ?, ?, ?)`,
+      ['Administrador', adminEmail, senhaHash, 'admin']
+    );
+    console.log('✓ Admin inicial configurado via variaveis de ambiente');
+  } else {
+    console.warn('⚠ ADMIN_EMAIL/ADMIN_PASSWORD nao definidos: admin inicial nao criado.');
+  }
 
-  // Inserir pre├ºos padr├úo de materiais
+  // Inserir preços padrão de materiais
   const precosPadrao = [
     // Gesso
     ['gesso', 'Chapa de Gesso 1,20x2,40m', 'unidade', 450],
-    ['gesso', 'Perfil M├úe', 'metro', 85],
+    ['gesso', 'Perfil Mãe', 'metro', 85],
     ['gesso', 'Perfil Guia', 'metro', 75],
     ['gesso', 'Pendural/Pente', 'unidade', 15],
     ['gesso', 'Parafuso', 'unidade', 2],
@@ -275,7 +281,7 @@ db.serialize(() => {
     // PVC
     ['pvc', 'Chapa PVC 5,80x0,25m', 'unidade', 380],
     ['pvc', 'Perfil Guia PVC', 'metro', 65],
-    ['pvc', 'Perfil de Sustenta├º├úo', 'metro', 55],
+    ['pvc', 'Perfil de Sustentação', 'metro', 55],
     ['pvc', 'Pendural PVC', 'unidade', 12],
     ['pvc', 'Cantoneira PVC', 'metro', 35],
 
@@ -287,13 +293,13 @@ db.serialize(() => {
     ['modular', 'Pendural/Tirante', 'unidade', 18],
     ['modular', 'Cantoneira Perimetral', 'metro', 45],
 
-    // Servi├ºos
-    ['servico', 'M├úo de Obra Instala├º├úo', 'm┬▓', 150],
-    ['servico', 'Barramento de Parede', 'm┬▓', 120],
-    ['servico', 'Barramento de Teto', 'm┬▓', 130],
-    ['servico', 'Aplica├º├úo de Massa', 'm┬▓', 80],
-    ['servico', 'Pintura Profissional', 'm┬▓', 100],
-    ['servico', 'Instala├º├úo El├⌐trica', 'ponto', 250]
+    // Serviços
+    ['servico', 'Mão de Obra Instalação', 'm²', 150],
+    ['servico', 'Barramento de Parede', 'm²', 120],
+    ['servico', 'Barramento de Teto', 'm²', 130],
+    ['servico', 'Aplicação de Massa', 'm²', 80],
+    ['servico', 'Pintura Profissional', 'm²', 100],
+    ['servico', 'Instalação Elétrica', 'ponto', 250]
   ];
 
   const stmt = db.prepare(`
@@ -307,7 +313,18 @@ db.serialize(() => {
 
   stmt.finalize();
 
-  console.log('Γ£ô Banco de dados inicializado com sucesso!');
+  console.log('✓ Banco de dados inicializado com sucesso!');
+});
+
+// Exportar db com promise ready para quem quiser aguardar inicializacao
+db.ready = new Promise((resolve, reject) => {
+  // Segunda serialize executa apos todos os statements da primeira
+  db.serialize(() => {
+    db.run('SELECT 1', (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 });
 
 module.exports = db;

@@ -12,12 +12,11 @@ const securityMiddleware = {
 
   cors: cors({
     origin: function (origin, callback) {
-      // Em producao, permite qualquer origem (app publico com autenticacao via JWT)
-      if (NODE_ENV === 'production') {
+      // Em producao, valida contra lista de origens permitidas (ou permite todas se nao configurado)
+      const allowedOrigins = (process.env.CORS_ORIGINS || '*').split(',');
+      if (allowedOrigins.includes('*')) {
         return callback(null, true);
       }
-      // Em desenvolvimento, verifica origens permitidas
-      const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3001,http://127.0.0.1:3001').split(',');
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
