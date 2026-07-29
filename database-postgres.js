@@ -28,7 +28,12 @@ const db = {
     }
     // Aguarda inicializacao antes de executar
     this._ensureInit().then(() => {
-      const adapted = adaptQuery(query);
+      let adapted = adaptQuery(query);
+      // Se for INSERT, adicionar RETURNING id para obter o lastID
+      if (/^\s*INSERT\s/i.test(adapted) && !/RETURNING\s/i.test(adapted)) {
+        // Remover ; no final se houver
+        adapted = adapted.replace(/;\s*$/, '') + ' RETURNING id';
+      }
       return sql.query(adapted, params);
     }).then(result => {
       if (callback) {
