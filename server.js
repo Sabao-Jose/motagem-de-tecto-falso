@@ -29,11 +29,36 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(cookieParser());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static('public'));
+
+// Servir ficheiros estáticos
+app.use(express.static(path.join(__dirname, 'public')));
+
 // No ambiente local, serve ficheiros da pasta uploads/
 if (!blob.isVercel) {
-    app.use('/uploads', express.static('uploads'));
+    app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 }
+
+// ==================== HEALTH CHECK ====================
+app.get('/api/health', async (req, res) => {
+    try {
+        await db.ready;
+        res.json({
+            status: 'ok',
+            env: process.env.NODE_ENV,
+            vercel: !!process.env.VERCEL,
+            db: db._initialized ? 'postgres' : 'não inicializado',
+            postgres_url: !!process.env.POSTGRES_URL,
+            database_url: !!process.env.DATABASE_URL,
+            blob_token: !!process.env.BLOB_READ_WRITE_TOKEN,
+            jwt_secret: !!process.env.JWT_SECRET,
+            admin_email: !!process.env.ADMIN_EMAIL,
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
 
 // Rate limiter global apenas nas rotas da API com escrita (nao afeta rotas de leitura GET)
 app.use('/api', (req, res, next) => {

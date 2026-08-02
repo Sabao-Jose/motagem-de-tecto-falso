@@ -4,8 +4,16 @@
  * para que o server.js não precise de alterações
  */
 
+// Garantir que POSTGRES_URL está definido antes de importar @vercel/postgres
+// O @vercel/postgres usa POSTGRES_URL por padrão; se só DATABASE_URL existir, mapeamos
+if (!process.env.POSTGRES_URL && process.env.DATABASE_URL) {
+  process.env.POSTGRES_URL = process.env.DATABASE_URL;
+  console.log('ℹ️ Mapeado DATABASE_URL → POSTGRES_URL para @vercel/postgres');
+}
+
 const { sql } = require('@vercel/postgres');
 const bcrypt = require('bcryptjs');
+
 
 // Wrapper que emula a API do SQLite
 const db = {
@@ -151,7 +159,16 @@ function adaptQuery(query) {
 async function initDatabase() {
   if (db._initialized) return;
   
+  // Verificar se POSTGRES_URL está definido
+  if (!process.env.POSTGRES_URL) {
+    throw new Error('POSTGRES_URL não está definido nas variáveis de ambiente. Configure no painel do Vercel.');
+  }
+
   try {
+    // Teste de conexão
+    await sql.query('SELECT 1');
+    console.log('✓ Conexão com PostgreSQL estabelecida');
+
     // Tabela de clientes
     await sql.query(`
       CREATE TABLE IF NOT EXISTS clientes (
