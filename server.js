@@ -48,7 +48,8 @@ app.get('/api/health', async (req, res) => {
             status: 'ok',
             env: process.env.NODE_ENV,
             vercel: !!process.env.VERCEL,
-            db: db._initialized ? 'postgres' : 'não inicializado',
+            db: db._initialized ? 'postgres' : (db._initError ? 'erro: ' + db._initError.message : 'não inicializado'),
+            db_error: db._initError ? db._initError.message : null,
             postgres_url: !!process.env.POSTGRES_URL,
             database_url: !!process.env.DATABASE_URL,
             blob_token: !!process.env.BLOB_READ_WRITE_TOKEN,
@@ -57,7 +58,7 @@ app.get('/api/health', async (req, res) => {
             timestamp: new Date().toISOString()
         });
     } catch (err) {
-        res.status(500).json({ status: 'error', message: err.message });
+        res.status(500).json({ status: 'error', message: err.message, db_error: db._initError ? db._initError.message : null });
     }
 });
 
@@ -102,7 +103,7 @@ const { autenticarToken, verificarRole, gerarTokens, renovarToken } = require('.
 
 function enviarEmail(destinatario, assunto, html) {
     return new Promise((resolve, reject) => {
-        db.all('SELECT chave, valor FROM configuracoes WHERE chave LIKE "smtp_%"', [], (err, rows) => {
+        db.all("SELECT chave, valor FROM configuracoes WHERE chave LIKE 'smtp_%'", [], (err, rows) => {
             if (err) return reject(err);
 
             const config = {};
@@ -122,7 +123,7 @@ function enviarEmail(destinatario, assunto, html) {
                 }
             });
 
-            db.get('SELECT valor FROM configuracoes WHERE chave = "empresa_email"', [], (err, row) => {
+            db.get("SELECT valor FROM configuracoes WHERE chave = 'empresa_email'", [], (err, row) => {
                 if (err) return reject(err);
                 const fromEmail = row ? row.valor : 'noreply@tetofalso.com';
 
@@ -394,7 +395,7 @@ app.get('/api/clientes', (req, res) => {
 
 // Listar clientes registados (role=cliente) com verificação e último login
 app.get('/api/clientes/lista', autenticarToken, verificarRole('admin'), (req, res) => {
-    db.all('SELECT id, nome, email, telefone, verificado, created_at, ultimo_login FROM usuarios WHERE role = "cliente" ORDER BY created_at DESC', [], (err, rows) => {
+    db.all("SELECT id, nome, email, telefone, verificado, created_at, ultimo_login FROM usuarios WHERE role = 'cliente' ORDER BY created_at DESC", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ clientes: rows });
     });
@@ -649,7 +650,7 @@ app.post('/api/contact', (req, res) => {
             }
 
             // Enviar email de notificação ao admin
-            db.get('SELECT valor FROM configuracoes WHERE chave = "admin_email"', [], (err, rowAdmin) => {
+            db.get("SELECT valor FROM configuracoes WHERE chave = 'admin_email'", [], (err, rowAdmin) => {
                 if (!err && rowAdmin && rowAdmin.valor) {
                     const adminEmail = rowAdmin.valor;
                     const assuntoEmail = `[Nova Mensagem] ${assunto} - ${nome}`;
@@ -1090,7 +1091,7 @@ app.delete('/api/faltas/:id', autenticarToken, verificarRole('admin'), (req, res
 
 // Verificar cliente
 app.put('/api/clientes/:id/verificar', autenticarToken, verificarRole('admin'), (req, res) => {
-    db.run('UPDATE usuarios SET verificado = 1 WHERE id = ? AND role = "cliente"', [req.params.id], function (err) {
+    db.run("UPDATE usuarios SET verificado = 1 WHERE id = ? AND role = 'cliente'", [req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Cliente não encontrado' });
         res.json({ message: 'Cliente verificado!' });
@@ -1324,15 +1325,15 @@ app.get('/api/agente-relatorio', autenticarToken, verificarRole('admin'), (req, 
         if (e) return fail(e);
         relatorio.totalUsuarios = r ? r.total : 0;
 
-        db.get('SELECT COUNT(*) as t FROM usuarios WHERE role="admin"', [], (e, r) => {
+        db.get("SELECT COUNT(*) as t FROM usuarios WHERE role = 'admin'", [], (e, r) => {
             if (e) return fail(e);
             relatorio.totalAdmins = r ? r.t : 0;
 
-            db.get('SELECT COUNT(*) as t FROM usuarios WHERE role="funcionario"', [], (e, r) => {
+            db.get("SELECT COUNT(*) as t FROM usuarios WHERE role = 'funcionario'", [], (e, r) => {
                 if (e) return fail(e);
                 relatorio.totalFuncionarios = r ? r.t : 0;
 
-                db.get('SELECT COUNT(*) as t FROM usuarios WHERE role="cliente"', [], (e, r) => {
+                db.get("SELECT COUNT(*) as t FROM usuarios WHERE role = 'cliente'", [], (e, r) => {
                     if (e) return fail(e);
                     relatorio.totalClientes = r ? r.t : 0;
                     done();
@@ -1354,7 +1355,7 @@ app.get('/api/agente-relatorio', autenticarToken, verificarRole('admin'), (req, 
                 if (e) return fail(e);
                 relatorio.servicosPagos = r ? r.t : 0;
 
-                db.get('SELECT COUNT(*) as t FROM servicos WHERE status="pendente"', [], (e, r) => {
+                db.get("SELECT COUNT(*) as t FROM servicos WHERE status = 'pendente'", [], (e, r) => {
                     if (e) return fail(e);
                     relatorio.servicosPendentes = r ? r.t : 0;
 
@@ -1390,7 +1391,7 @@ app.get('/api/agente-relatorio', autenticarToken, verificarRole('admin'), (req, 
     });
 
     // 6. Pedidos portfolio
-    db.get('SELECT COUNT(*) as t FROM pedidos_portfolio WHERE status="pendente"', [], (e, r) => {
+    db.get("SELECT COUNT(*) as t FROM pedidos_portfolio WHERE status = 'pendente'", [], (e, r) => {
         if (e) return fail(e);
         relatorio.pedidosPendentes = r ? r.t : 0;
         done();

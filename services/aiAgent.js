@@ -7,11 +7,11 @@ async function obterContextoDoSistema() {
 
     db.get('SELECT COUNT(*) as t FROM usuarios', [], (e, r) => {
       ctx.totalUsuarios = r ? r.t : 0;
-      db.get('SELECT COUNT(*) as t FROM usuarios WHERE role = "cliente"', [], (e, r) => {
+      db.get("SELECT COUNT(*) as t FROM usuarios WHERE role = 'cliente'", [], (e, r) => {
         ctx.totalClientes = r ? r.t : 0;
-        db.get('SELECT COUNT(*) as t FROM usuarios WHERE role = "funcionario"', [], (e, r) => {
+        db.get("SELECT COUNT(*) as t FROM usuarios WHERE role = 'funcionario'", [], (e, r) => {
           ctx.totalFuncionarios = r ? r.t : 0;
-          db.get('SELECT COUNT(*) as t FROM usuarios WHERE role = "admin"', [], (e, r) => {
+          db.get("SELECT COUNT(*) as t FROM usuarios WHERE role = 'admin'", [], (e, r) => {
             ctx.totalAdmins = r ? r.t : 0;
             db.get('SELECT COUNT(*) as t FROM servicos', [], (e, r) => {
               ctx.totalServicos = r ? r.t : 0;
@@ -23,7 +23,7 @@ async function obterContextoDoSistema() {
                     ctx.mensagensNaoLidas = r ? r.t : 0;
                     db.get('SELECT COUNT(*) as t FROM faltas WHERE justificada = 0', [], (e, r) => {
                       ctx.faltasNaoJustificadas = r ? r.t : 0;
-                      db.get('SELECT COUNT(*) as t FROM servicos WHERE status = "pendente"', [], (e, r) => {
+                      db.get("SELECT COUNT(*) as t FROM servicos WHERE status = 'pendente'", [], (e, r) => {
                         ctx.servicosPendentes = r ? r.t : 0;
                         db.get('SELECT COALESCE(SUM(valor_total),0) as t FROM servicos WHERE pago = 0', [], (e, r) => {
                           ctx.valorPendente = r ? r.t : 0;
@@ -97,7 +97,7 @@ Para gerir usuarios va ao separador "Utilizadores" no painel admin.`,
 
   funcionarios_lista: async () => {
     return new Promise((resolve) => {
-      db.all('SELECT id, nome, email, telefone, salario, created_at FROM usuarios WHERE role = "funcionario" ORDER BY nome', [], (e, rows) => {
+      db.all("SELECT id, nome, email, telefone, salario, created_at FROM usuarios WHERE role = 'funcionario' ORDER BY nome", [], (e, rows) => {
         if (e || !rows.length) return resolve('Nenhum funcionario registado.');
         let r = `👷 **Lista de Funcionarios (${rows.length})**\n\n`;
         rows.forEach((f, i) => {
@@ -112,7 +112,7 @@ Para gerir usuarios va ao separador "Utilizadores" no painel admin.`,
 
   clientes_lista: async () => {
     return new Promise((resolve) => {
-      db.all('SELECT id, nome, email, telefone, verificado, created_at FROM usuarios WHERE role = "cliente" ORDER BY created_at DESC LIMIT 20', [], (e, rows) => {
+      db.all("SELECT id, nome, email, telefone, verificado, created_at FROM usuarios WHERE role = 'cliente' ORDER BY created_at DESC LIMIT 20", [], (e, rows) => {
         if (e || !rows.length) return resolve('Nenhum cliente registado.');
         let r = `✅ **Ultimos Clientes Registados (${rows.length})**\n\n`;
         rows.forEach((c, i) => {
@@ -142,7 +142,7 @@ Para gerir usuarios va ao separador "Utilizadores" no painel admin.`,
 
   servicos_pendentes: async () => {
     return new Promise((resolve) => {
-      db.all('SELECT s.id, s.tipo_teto, s.valor_total, s.created_at, c.nome as cliente FROM servicos s LEFT JOIN clientes c ON s.cliente_id = c.id WHERE s.status = "pendente" ORDER BY s.created_at DESC', [], (e, rows) => {
+      db.all("SELECT s.id, s.tipo_teto, s.valor_total, s.created_at, c.nome as cliente FROM servicos s LEFT JOIN clientes c ON s.cliente_id = c.id WHERE s.status = 'pendente' ORDER BY s.created_at DESC", [], (e, rows) => {
         if (e || !rows.length) return resolve('Nenhum servico pendente.');
         let r = `📋 **Servicos Pendentes (${rows.length})**\n\n`;
         rows.forEach((s, i) => {

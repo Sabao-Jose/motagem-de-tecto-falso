@@ -11,6 +11,19 @@ if (!process.env.POSTGRES_URL && process.env.DATABASE_URL) {
   console.log('ℹ️ Mapeado DATABASE_URL → POSTGRES_URL para @vercel/postgres');
 }
 
+// Remover channel_binding=require: parâmetro do Neon que causa falhas de autenticação
+// em runtimes serverless (Vercel) por causa de proxies TLS. sslmode=require é suficiente.
+if (process.env.POSTGRES_URL) {
+  // Remove o parâmetro channel_binding e limpa & ou ? residuais na query string
+  let url = process.env.POSTGRES_URL;
+  const [base, queryPart] = url.split('?');
+  if (queryPart) {
+    const params = queryPart.split('&').filter(p => p && !p.startsWith('channel_binding='));
+    url = params.length > 0 ? `${base}?${params.join('&')}` : base;
+  }
+  process.env.POSTGRES_URL = url;
+}
+
 const { sql } = require('@vercel/postgres');
 const bcrypt = require('bcryptjs');
 
@@ -19,18 +32,24 @@ const bcrypt = require('bcryptjs');
 const db = {
   _initialized: false,
   _initPromise: null,
+  _initError: null,
 
   // Aguarda inicializacao antes de executar queries
   // No Vercel (serverless), cada instancia começa do zero — garantir init
   _ensureInit: async function() {
+    // Se a inicialização anterior falhou, limpar para permitir nova tentativa
+    if (this._initError) {
+      this._initPromise = null;
+      this._initError = null;
+    }
     if (!this._initPromise) {
       // Segurança: se a promise foi perdida (cold start diferente), reiniciar
       this._initPromise = initDatabase().catch(err => {
         console.error('✗ Re-inicialização falhou:', err.message);
+        this._initError = err;
         this._initPromise = null; // Permite nova tentativa
         throw err;
       });
-      this.ready = this._initPromise;
     }
     await this._initPromise;
   },
@@ -449,19 +468,32 @@ async function initDatabase() {
     }
 
     db._initialized = true;
+    db._initError = null;
     console.log('✓ Banco PostgreSQL inicializado com sucesso!');
   } catch (err) {
     console.error('Erro ao inicializar PostgreSQL:', err.message);
+    // Guardar o erro para diagnóstico (health check) e permitir retry
+    db._initialized = false;
+    db._initError = err;
+    throw err; // Relançar: se o init falhou, as queries NÃO devem prosseguir
   }
 }
 
 // Inicializar automaticamente e armazenar promise para concurrency safety
 db._initPromise = initDatabase().catch(err => {
   console.error('✗ Falha na inicializacao do PostgreSQL:', err.message);
-  throw err;
+  db._initError = err;
+  db._initPromise = null; // Permite nova tentativa no próximo acesso
 });
 
-// Exportar db com promise ready
-db.ready = db._initPromise;
+// Exportar db com promise ready (getter dinâmico: sempre tenta inicializar,
+// mesmo após uma falha anterior — crítico para cold starts no Vercel)
+Object.defineProperty(db, 'ready', {
+  get() {
+    return db._ensureInit();
+  },
+  enumerable: true,
+  configurable: true
+});
 
 module.exports = db;

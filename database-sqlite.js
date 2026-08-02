@@ -142,7 +142,7 @@ db.serialize(() => {
   addColumnIfNotExists('usuarios', 'salario', 'REAL DEFAULT 0');
   addColumnIfNotExists('usuarios', 'endereco', 'TEXT');
   addColumnIfNotExists('faltas', 'tipo', 'TEXT');
-  addColumnIfNotExists('faltas', 'tipo_falta', 'TEXT DEFAULT "dia_inteiro"');
+  addColumnIfNotExists('faltas', 'tipo_falta', "TEXT DEFAULT 'dia_inteiro'");
   addColumnIfNotExists('usuarios', 'numero_conta', 'TEXT');
   addColumnIfNotExists('usuarios', 'ultimo_login', 'DATETIME');
   addColumnIfNotExists('usuarios', 'pode_responder_mensagens', 'INTEGER DEFAULT 0');
