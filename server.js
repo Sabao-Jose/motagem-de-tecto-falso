@@ -27,8 +27,10 @@ app.use('/api/auth/login', security.loginLimiter);
 // ==================== MIDDLEWARE GLOBAL ====================
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(cookieParser());
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+// Vercel Hobby: limite de 4.5MB por request
+const MAX_BODY = process.env.VERCEL ? '4mb' : '10mb';
+app.use(bodyParser.json({ limit: MAX_BODY }));
+app.use(bodyParser.urlencoded({ extended: true, limit: MAX_BODY }));
 
 // Servir ficheiros estáticos
 app.use(express.static(path.join(__dirname, 'public')));
@@ -72,9 +74,14 @@ app.use('/api', (req, res, next) => {
 // Configuração do Multer para upload de arquivos (usa memoryStorage para funcionar em Vercel)
 const storage = multer.memoryStorage();
 
+// Vercel Hobby: limite prático de 4MB por request; local: 50MB
+const MAX_FILE_SIZE = process.env.VERCEL
+    ? 4 * 1024 * 1024        // 4MB no Vercel (plano gratuito)
+    : 50 * 1024 * 1024;      // 50MB local
+
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+    limits: { fileSize: MAX_FILE_SIZE },
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mov|mkv|webm|pdf/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());

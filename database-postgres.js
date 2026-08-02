@@ -21,10 +21,18 @@ const db = {
   _initPromise: null,
 
   // Aguarda inicializacao antes de executar queries
+  // No Vercel (serverless), cada instancia começa do zero — garantir init
   _ensureInit: async function() {
-    if (this._initPromise) {
-      await this._initPromise;
+    if (!this._initPromise) {
+      // Segurança: se a promise foi perdida (cold start diferente), reiniciar
+      this._initPromise = initDatabase().catch(err => {
+        console.error('✗ Re-inicialização falhou:', err.message);
+        this._initPromise = null; // Permite nova tentativa
+        throw err;
+      });
+      this.ready = this._initPromise;
     }
+    await this._initPromise;
   },
 
   // db.run(query, params, callback)
