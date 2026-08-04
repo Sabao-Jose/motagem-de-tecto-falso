@@ -1,5 +1,6 @@
 import { render, api, showError, showSuccess, formatCurrency, formatDate } from '../app.js';
 import { gerarReciboPDF } from '../utils/pdfGenerator.js';
+import { uploadFileToBlob, isDirectUploadAvailable } from '../utils/blobUploader.js';
 
 export default async function adminPage() {
     let usuarios = [];
@@ -3291,7 +3292,28 @@ export default async function adminPage() {
             const arquivo = document.getElementById('editPortfolioArquivo').files[0];
             if (arquivo) formData.append('arquivo', arquivo);
             try {
-                await api.uploadFile(`/portfolio/${id}`, formData, 'PUT');
+                // Ficheiros grandes (>4MB) vão direto ao Blob pelo browser
+                // (o servidor no Vercel Hobby tem limite de ~4.5MB por request).
+                // Em desenvolvimento local (sem Blob) usa o fluxo normal.
+                if (arquivo && arquivo.size > 4 * 1024 * 1024 && await isDirectUploadAvailable()) {
+                    const url = await uploadFileToBlob(arquivo, 'portfolio');
+                    const ext = (arquivo.name.split('.').pop() || '').toLowerCase();
+                    const payload = {
+                        titulo: document.getElementById('editPortfolioTitulo').value,
+                        descricao: document.getElementById('editPortfolioDescricao').value,
+                        tipo_servico: document.getElementById('editPortfolioTipo').value
+                    };
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                        payload.imagem_url = url;
+                        payload.substituir_imagem = true;
+                    } else {
+                        payload.video_url = url;
+                        payload.substituir_video = true;
+                    }
+                    await api.put(`/portfolio/${id}`, payload);
+                } else {
+                    await api.uploadFile(`/portfolio/${id}`, formData, 'PUT');
+                }
                 showSuccess('Projecto actualizado!');
             } catch (error) {
                 showError(error.message);

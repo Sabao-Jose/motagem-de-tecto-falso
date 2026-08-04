@@ -7,12 +7,16 @@
  */
 
 const { put, del } = require('@vercel/blob');
+const { generateClientTokenFromReadWriteToken } = require('@vercel/blob/client');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const isVercel = !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL);
 const LOCAL_UPLOAD_DIR = path.join(__dirname, 'uploads');
+
+// Limite para upload direto do browser ao Blob (fica longe do limite de 4.5MB do serverless)
+const MAX_DIRECT_UPLOAD_BYTES = 500 * 1024 * 1024; // 500MB
 
 // Garantir que a pasta local existe
 if (!isVercel && !fs.existsSync(LOCAL_UPLOAD_DIR)) {
@@ -80,4 +84,34 @@ async function deleteFile(url) {
   }
 }
 
-module.exports = { uploadFile, deleteFile, isVercel };
+/**
+ * Gera um client token para upload DIRETO do browser ao Vercel Blob.
+ * Contorna o limite de ~4.5MB de body das serverless functions do Vercel Hobby:
+ * o ficheiro vai do browser para o Blob sem passar pelo servidor.
+ *
+ * @param {string} originalname - Nome original do ficheiro
+ * @param {string} [folder] - Subpasta (ex.: 'portfolio')
+ * @returns {Promise<{clientToken: string, pathname: string, filename: string}>}
+ */
+async function getClientUploadToken(originalname, folder = '') {
+    if (!isVercel) {
+        throw new Error('Upload direto só está disponível no Vercel');
+    }
+    const filename = generateFilename(originalname);
+    const pathname = folder ? `${folder}/${filename}` : filename;
+
+    const clientToken = await generateClientTokenFromReadWriteToken({
+        pathname,
+        // Mesmos tipos aceites pelo multer (server.js)
+        allowedContentTypes: ['image/*', 'video/*', 'application/pdf'],
+        maximumSizeInBytes: MAX_DIRECT_UPLOAD_BYTES,
+        addRandomSuffix: false,
+        allowOverwrite: false,
+        // Token válido por 1 hora (uploads de vídeo podem demorar)
+        validUntil: Date.now() + 60 * 60 * 1000
+    });
+
+    return { clientToken, pathname, filename };
+}
+
+module.exports = { uploadFile, deleteFile, isVercel, getClientUploadToken };

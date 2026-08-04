@@ -1,4 +1,9 @@
 import { render, api, showSuccess, showError } from '../app.js';
+import { uploadFileToBlob, isDirectUploadAvailable } from '../utils/blobUploader.js';
+
+// Ficheiros acima deste limite vão direto ao Blob pelo browser
+// (contorna o limite de ~4.5MB do servidor no Vercel Hobby)
+const DIRECT_UPLOAD_MIN = 4 * 1024 * 1024; // 4MB
 
 function getUserRole() {
   const data = localStorage.getItem('teto_falso_user');
@@ -514,7 +519,26 @@ export default async function portfolioPage() {
       }
 
       try {
-        await api.uploadFile('/portfolio', formData);
+        // Ficheiros grandes (>4MB) vão direto ao Blob pelo browser para
+        // não ultrapassarem o limite de body da função serverless no Vercel.
+        // Em desenvolvimento local (sem Blob) usa o fluxo normal.
+        if (arquivo && arquivo.size > DIRECT_UPLOAD_MIN && await isDirectUploadAvailable()) {
+          const url = await uploadFileToBlob(arquivo, 'portfolio');
+          const ext = (arquivo.name.split('.').pop() || '').toLowerCase();
+          const payload = {
+            titulo: document.getElementById('titulo').value,
+            descricao: document.getElementById('descricao').value,
+            tipo_servico: document.getElementById('tipo_servico').value
+          };
+          if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+            payload.imagem_url = url;
+          } else {
+            payload.video_url = url;
+          }
+          await api.post('/portfolio', payload);
+        } else {
+          await api.uploadFile('/portfolio', formData);
+        }
         showSuccess('Projecto adicionado com sucesso!');
       } catch (error) {
         console.error('Error uploading:', error);

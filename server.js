@@ -779,6 +779,26 @@ app.delete('/api/contact/:id', autenticarToken, verificarRole('admin', 'funciona
 
 // ==================== ROTAS DE PORTFÓLIO ====================
 
+// Gerar client token para upload DIRETO do browser ao Vercel Blob
+// (contorna o limite de ~4.5MB de body das serverless functions no plano Hobby)
+app.post('/api/blob/token', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+    const { originalname, folder } = req.body || {};
+
+    if (!originalname) {
+        return res.status(400).json({ error: 'Nome do ficheiro é obrigatório' });
+    }
+    if (!blob.isVercel) {
+        return res.status(400).json({ error: 'Upload direto só está disponível no Vercel (em produção). Em desenvolvimento use o formulário normal.' });
+    }
+
+    try {
+        const info = await blob.getClientUploadToken(originalname, folder || 'portfolio');
+        res.json(info);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao preparar upload: ' + err.message });
+    }
+});
+
 // Listar portfólio
 app.get('/api/portfolio', (req, res) => {
     const tipo = req.query.tipo;
@@ -801,6 +821,25 @@ app.get('/api/portfolio', (req, res) => {
 
 // Adicionar projeto ao portfólio
 app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+    // Caminho JSON: upload direto ao Blob já feito pelo browser (vídeos/imagens grandes)
+    if (!req.is('multipart/form-data')) {
+        const { titulo, descricao, tipo_servico, imagem_url, video_url } = req.body;
+        if (!titulo || !tipo_servico) {
+            return res.status(400).json({ error: 'Título e tipo de serviço são obrigatórios' });
+        }
+        db.run(
+            'INSERT INTO portfolio (titulo, descricao, tipo_servico, imagem_url, video_url) VALUES (?, ?, ?, ?, ?)',
+            [titulo, descricao, tipo_servico, imagem_url || null, video_url || null],
+            function (err) {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                res.json({ id: this.lastID, message: 'Projeto adicionado ao portfólio!' });
+            }
+        );
+        return;
+    }
+
     upload.single('arquivo')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
@@ -840,6 +879,47 @@ app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'
 
 // Atualizar projeto do portfólio
 app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+    // Caminho JSON: upload direto ao Blob já feito pelo browser
+    if (!req.is('multipart/form-data')) {
+        const { titulo, descricao, tipo_servico, imagem_url, video_url, substituir_imagem, substituir_video } = req.body;
+
+        db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], async (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            if (!row) {
+                return res.status(404).json({ error: 'Projeto não encontrado' });
+            }
+
+            const finalImagem = substituir_imagem ? imagem_url : row.imagem_url;
+            const finalVideo = substituir_video ? video_url : row.video_url;
+
+            // Apagar ficheiro antigo do Blob se foi substituído
+            try {
+                if (substituir_imagem && row.imagem_url && imagem_url && imagem_url !== row.imagem_url) {
+                    await blob.deleteFile(row.imagem_url);
+                }
+                if (substituir_video && row.video_url && video_url && video_url !== row.video_url) {
+                    await blob.deleteFile(row.video_url);
+                }
+            } catch (delErr) {
+                console.warn('Aviso ao apagar blob antigo:', delErr.message);
+            }
+
+            db.run(
+                'UPDATE portfolio SET titulo = ?, descricao = ?, tipo_servico = ?, imagem_url = ?, video_url = ? WHERE id = ?',
+                [titulo, descricao, tipo_servico, finalImagem, finalVideo, req.params.id],
+                function (err2) {
+                    if (err2) {
+                        return res.status(500).json({ error: err2.message });
+                    }
+                    res.json({ message: 'Projeto atualizado com sucesso!' });
+                }
+            );
+        });
+        return;
+    }
+
     upload.single('arquivo')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
