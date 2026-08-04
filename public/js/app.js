@@ -308,7 +308,44 @@ const api = {
         return response.json();
     },
 
-    async uploadFile(endpoint, formData, method = 'POST') {
+    async uploadFile(endpoint, formData, method = 'POST', onProgress = null) {
+        // Com callback de progresso usa XMLHttpRequest (o fetch não expõe o
+        // progresso do upload) para alimentar a barra de carregamento.
+        if (onProgress) {
+            const token = localStorage.getItem('teto_falso_token');
+            const send = (tk) => new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open(method, `${API_URL}${endpoint}`);
+                if (tk) xhr.setRequestHeader('Authorization', `Bearer ${tk}`);
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+                };
+                xhr.onload = () => {
+                    let data = {};
+                    try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch { /* resposta não-JSON */ }
+                    if (xhr.status === 401) {
+                        tryRefreshToken().then(() => {
+                            send(localStorage.getItem('teto_falso_token')).then(resolve).catch(reject);
+                        }).catch(() => {
+                            clearAuthAndRedirect();
+                            reject(new Error('Sessão expirada. Faça login novamente.'));
+                        });
+                        return;
+                    }
+                    if (xhr.status === 403) {
+                        clearAuthAndRedirect();
+                        reject(new Error('Sessão expirada. Faça login novamente.'));
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+                    else reject(new Error(data.error || 'Upload failed'));
+                };
+                xhr.onerror = () => reject(new Error('Erro de rede ao enviar o ficheiro'));
+                xhr.send(formData);
+            });
+            return send(token);
+        }
+
         let token = localStorage.getItem('teto_falso_token');
         let headers = token ? { 'Authorization': `Bearer ${token}` } : {};
         let response = await fetch(`${API_URL}${endpoint}`, {

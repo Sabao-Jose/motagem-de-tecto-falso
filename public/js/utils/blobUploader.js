@@ -44,9 +44,10 @@ export async function isDirectUploadAvailable() {
  * Envia um ficheiro direto ao Vercel Blob Storage.
  * @param {File} file - Ficheiro selecionado pelo utilizador
  * @param {string} [folder] - Subpasta no Blob (ex.: 'portfolio')
+ * @param {Function} [onProgress] - Callback com percentual (0-100) do envio
  * @returns {Promise<string>} URL pública do ficheiro
  */
-export async function uploadFileToBlob(file, folder = 'portfolio') {
+export async function uploadFileToBlob(file, folder = 'portfolio', onProgress = null) {
     const token = localStorage.getItem('teto_falso_token');
 
     // 1. Pedir client token ao nosso servidor (identifica o ficheiro e as permissões)
@@ -69,27 +70,41 @@ export async function uploadFileToBlob(file, folder = 'portfolio') {
         throw new Error('Resposta inválida ao preparar o upload direto');
     }
 
-    // 2. Enviar o ficheiro diretamente ao Vercel Blob (mesmo protocolo do SDK @vercel/blob/client)
-    const uploadRes = await fetch(`${BLOB_API_URL}/?pathname=${encodeURIComponent(pathname)}`, {
-        method: 'PUT',
-        headers: {
-            'authorization': `Bearer ${clientToken}`,
-            'x-vercel-blob-access': 'public',
-            'x-api-version': BLOB_API_VERSION,
-            'x-content-type': file.type || 'application/octet-stream'
-        },
-        body: file
+    // 2. Enviar o ficheiro diretamente ao Vercel Blob (mesmo protocolo do SDK
+    //    @vercel/blob/client). Usa XMLHttpRequest para reportar o progresso
+    //    (o fetch não expõe progresso de upload).
+    const blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', `${BLOB_API_URL}/?pathname=${encodeURIComponent(pathname)}`);
+        xhr.setRequestHeader('authorization', `Bearer ${clientToken}`);
+        xhr.setRequestHeader('x-vercel-blob-access', 'public');
+        xhr.setRequestHeader('x-api-version', BLOB_API_VERSION);
+        xhr.setRequestHeader('x-content-type', file.type || 'application/octet-stream');
+        if (onProgress) {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+            };
+        }
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                let parsed = null;
+                try { parsed = JSON.parse(xhr.responseText); } catch { /* resposta não-JSON */ }
+                resolve(parsed);
+            } else {
+                let msg = 'Erro ao enviar o ficheiro para o armazenamento';
+                try {
+                    const errData = JSON.parse(xhr.responseText);
+                    if (errData && errData.error) {
+                        msg = (errData.error.message || errData.error);
+                    }
+                } catch { /* sem detalhes */ }
+                reject(new Error(msg));
+            }
+        };
+        xhr.onerror = () => reject(new Error('Erro de rede ao enviar o ficheiro'));
+        xhr.send(file);
     });
 
-    if (!uploadRes.ok) {
-        const errData = await uploadRes.json().catch(() => ({}));
-        throw new Error(
-            (errData && errData.error && (errData.error.message || errData.error)) ||
-            'Erro ao enviar o ficheiro para o armazenamento'
-        );
-    }
-
-    const blob = await uploadRes.json();
     if (!blob || !blob.url) {
         throw new Error('O armazenamento não devolveu a URL do ficheiro');
     }

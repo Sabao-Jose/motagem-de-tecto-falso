@@ -1,5 +1,6 @@
 import { render, api, showSuccess, showError } from '../app.js';
 import { uploadFileToBlob, isDirectUploadAvailable } from '../utils/blobUploader.js';
+import { createProgressBar } from '../utils/uploadProgress.js';
 
 // Ficheiros acima deste limite vão direto ao Blob pelo browser
 // (contorna o limite de ~4.5MB do servidor no Vercel Hobby)
@@ -213,6 +214,8 @@ export default async function portfolioPage() {
                   <label class="form-label">Imagem ou Vídeo</label>
                   <input type="file" class="form-input" id="arquivo" accept="image/*,video/*">
                 </div>
+
+                <div id="uploadProgressContainer"></div>
 
                 <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
                   Adicionar ao Portfólio
@@ -519,11 +522,19 @@ export default async function portfolioPage() {
       }
 
       try {
+        // Barra de progresso do upload
+        const prog = createProgressBar(document.getElementById('uploadProgressContainer'));
+        let emUpload = false;
+
         // Ficheiros grandes (>4MB) vão direto ao Blob pelo browser para
         // não ultrapassarem o limite de body da função serverless no Vercel.
         // Em desenvolvimento local (sem Blob) usa o fluxo normal.
         if (arquivo && arquivo.size > DIRECT_UPLOAD_MIN && await isDirectUploadAvailable()) {
-          const url = await uploadFileToBlob(arquivo, 'portfolio');
+          emUpload = true;
+          prog.show('A enviar ficheiro para o armazenamento...');
+          const url = await uploadFileToBlob(arquivo, 'portfolio', (pct) => {
+            prog.set(pct, `A enviar ficheiro para o armazenamento... ${pct}%`);
+          });
           const ext = (arquivo.name.split('.').pop() || '').toLowerCase();
           const payload = {
             titulo: document.getElementById('titulo').value,
@@ -535,11 +546,18 @@ export default async function portfolioPage() {
           } else {
             payload.video_url = url;
           }
+          prog.set(95, 'A registar o projecto no servidor...');
           await api.post('/portfolio', payload);
-        } else {
-          await api.uploadFile('/portfolio', formData);
+        } else if (arquivo) {
+          emUpload = true;
+          prog.show('A carregar projecto...');
+          await api.uploadFile('/portfolio', formData, 'POST', (pct) => {
+            prog.set(pct, `A carregar projecto... ${pct}%`);
+          });
         }
+        if (emUpload) prog.done('Projecto carregado com sucesso!');
         showSuccess('Projecto adicionado com sucesso!');
+        if (emUpload) setTimeout(() => prog.hide(), 1500);
       } catch (error) {
         console.error('Error uploading:', error);
         showError('Erro ao adicionar projeto');

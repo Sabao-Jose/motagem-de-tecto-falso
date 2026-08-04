@@ -1,6 +1,7 @@
 import { render, api, showError, showSuccess, formatCurrency, formatDate } from '../app.js';
 import { gerarReciboPDF } from '../utils/pdfGenerator.js';
 import { uploadFileToBlob, isDirectUploadAvailable } from '../utils/blobUploader.js';
+import { createProgressBar } from '../utils/uploadProgress.js';
 
 export default async function adminPage() {
     let usuarios = [];
@@ -739,6 +740,7 @@ export default async function adminPage() {
                             <label class="form-label">Imagem / Vídeo (deixe vazio para manter o actual)</label>
                             <input type="file" class="form-input" id="editPortfolioArquivo" accept="image/*,video/*">
                         </div>
+                        <div id="editUploadProgressContainer"></div>
                         <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">Salvar Alterações</button>
                     </form>
                 </div>
@@ -3292,11 +3294,19 @@ export default async function adminPage() {
             const arquivo = document.getElementById('editPortfolioArquivo').files[0];
             if (arquivo) formData.append('arquivo', arquivo);
             try {
+                // Barra de progresso do upload
+                const prog = createProgressBar(document.getElementById('editUploadProgressContainer'));
+                let emUpload = false;
+
                 // Ficheiros grandes (>4MB) vão direto ao Blob pelo browser
                 // (o servidor no Vercel Hobby tem limite de ~4.5MB por request).
                 // Em desenvolvimento local (sem Blob) usa o fluxo normal.
                 if (arquivo && arquivo.size > 4 * 1024 * 1024 && await isDirectUploadAvailable()) {
-                    const url = await uploadFileToBlob(arquivo, 'portfolio');
+                    emUpload = true;
+                    prog.show('A enviar ficheiro para o armazenamento...');
+                    const url = await uploadFileToBlob(arquivo, 'portfolio', (pct) => {
+                        prog.set(pct, `A enviar ficheiro para o armazenamento... ${pct}%`);
+                    });
                     const ext = (arquivo.name.split('.').pop() || '').toLowerCase();
                     const payload = {
                         titulo: document.getElementById('editPortfolioTitulo').value,
@@ -3310,11 +3320,18 @@ export default async function adminPage() {
                         payload.video_url = url;
                         payload.substituir_video = true;
                     }
+                    prog.set(95, 'A registar as alterações no servidor...');
                     await api.put(`/portfolio/${id}`, payload);
-                } else {
-                    await api.uploadFile(`/portfolio/${id}`, formData, 'PUT');
+                } else if (arquivo) {
+                    emUpload = true;
+                    prog.show('A carregar projecto...');
+                    await api.uploadFile(`/portfolio/${id}`, formData, 'PUT', (pct) => {
+                        prog.set(pct, `A carregar projecto... ${pct}%`);
+                    });
                 }
+                if (emUpload) prog.done('Projecto actualizado com sucesso!');
                 showSuccess('Projecto actualizado!');
+                if (emUpload) setTimeout(() => prog.hide(), 1500);
             } catch (error) {
                 showError(error.message);
             }
