@@ -333,11 +333,34 @@ app.put('/api/usuarios/:id/responder-permissao', autenticarToken, verificarRole(
 
 // Deletar usuário
 app.delete('/api/usuarios/:id', autenticarToken, verificarRole('admin'), (req, res) => {
-    db.run('DELETE FROM usuarios WHERE id = ?', [req.params.id], function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
-        res.json({ message: 'Usuário deletado com sucesso!' });
-    });
+    const userId = req.params.id;
+
+    // PostgreSQL impõe as chaves estrangeiras: antes de apagar o utilizador é
+    // preciso remover (ou desassociar) os registos que dependem dele.
+    //  - ai_conversations/faltas/pedidos_portfolio: apagar (NOT NULL)
+    //  - audit_logs: manter o histórico, apenas desassociar o utilizador
+    const limpezas = [
+        'DELETE FROM ai_conversations WHERE usuario_id = ?',
+        'DELETE FROM faltas WHERE usuario_id = ?',
+        'DELETE FROM pedidos_portfolio WHERE usuario_id = ?',
+        'UPDATE audit_logs SET usuario_id = NULL WHERE usuario_id = ?'
+    ];
+
+    const executarLimpeza = (i) => {
+        if (i >= limpezas.length) {
+            db.run('DELETE FROM usuarios WHERE id = ?', [userId], function (err) {
+                if (err) return res.status(500).json({ error: err.message });
+                if (this.changes === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+                res.json({ message: 'Usuário deletado com sucesso!' });
+            });
+            return;
+        }
+        db.run(limpezas[i], [userId], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            executarLimpeza(i + 1);
+        });
+    };
+    executarLimpeza(0);
 });
 
 // Atualizar dados de funcionário (salario, endereco, numero_conta, banco, tipo_conta, foto)
@@ -456,13 +479,34 @@ app.put('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionari
 
 // Deletar cliente
 app.delete('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
-    db.run('DELETE FROM clientes WHERE id = ?', [req.params.id], function (err) {
-        if (err) {
-            res.status(500).json({ error: err.message });
+    const clienteId = req.params.id;
+
+    // PostgreSQL impõe as chaves estrangeiras: antes de apagar o cliente é
+    // preciso desassociar os serviços e utilizadores que apontam para ele
+    // (mantém os registos de negócio, apenas remove a ligação ao cliente).
+    const limpezas = [
+        'UPDATE servicos SET cliente_id = NULL WHERE cliente_id = ?',
+        'UPDATE usuarios SET cliente_id = NULL WHERE cliente_id = ?'
+    ];
+
+    const executarLimpeza = (i) => {
+        if (i >= limpezas.length) {
+            db.run('DELETE FROM clientes WHERE id = ?', [clienteId], function (err) {
+                if (err) {
+                    res.status(500).json({ error: err.message });
+                    return;
+                }
+                if (this.changes === 0) return res.status(404).json({ error: 'Cliente não encontrado' });
+                res.json({ message: 'Cliente deletado com sucesso!' });
+            });
             return;
         }
-        res.json({ message: 'Cliente deletado com sucesso!' });
-    });
+        db.run(limpezas[i], [clienteId], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            executarLimpeza(i + 1);
+        });
+    };
+    executarLimpeza(0);
 });
 
 // ==================== ROTAS DE SERVIÇOS ====================

@@ -224,7 +224,11 @@ const api = {
             clearAuthAndRedirect();
             throw new Error('Sessão expirada. Faça login novamente.');
         }
-        if (!response.ok) throw new Error('API request failed');
+        if (!response.ok) {
+            let msg = 'API request failed';
+            try { const d = await response.json(); if (d && d.error) msg = d.error; } catch { /* sem corpo JSON */ }
+            throw new Error(msg);
+        }
         return response.json();
     },
 
@@ -279,7 +283,11 @@ const api = {
             clearAuthAndRedirect();
             throw new Error('Sessão expirada. Faça login novamente.');
         }
-        if (!response.ok) throw new Error('API request failed');
+        if (!response.ok) {
+            let msg = 'API request failed';
+            try { const d = await response.json(); if (d && d.error) msg = d.error; } catch { /* sem corpo JSON */ }
+            throw new Error(msg);
+        }
         return response.json();
     },
 
@@ -304,7 +312,11 @@ const api = {
             clearAuthAndRedirect();
             throw new Error('Sessão expirada. Faça login novamente.');
         }
-        if (!response.ok) throw new Error('API request failed');
+        if (!response.ok) {
+            let msg = 'API request failed';
+            try { const d = await response.json(); if (d && d.error) msg = d.error; } catch { /* sem corpo JSON */ }
+            throw new Error(msg);
+        }
         return response.json();
     },
 

@@ -401,6 +401,43 @@ async function initDatabase() {
     await sql.query('CREATE INDEX IF NOT EXISTS idx_audit_logs_acao ON audit_logs(acao)');
     await sql.query('CREATE INDEX IF NOT EXISTS idx_ai_conversations_usuario ON ai_conversations(usuario_id)');
 
+    // ============ MIGRAÇÕES (colunas adicionadas após a criação original) ============
+    // Tabelas criadas numa versão anterior do sistema podem não ter as colunas
+    // mais recentes (ex.: servicos.pago). CREATE TABLE IF NOT EXISTS NÃO altera
+    // tabelas existentes, por isso adicionamos aqui as colunas em falta.
+    // ADD COLUMN IF NOT EXISTS é idempotente e seguro no PostgreSQL.
+    const migracoes = [
+      ['usuarios', 'verificado', 'INTEGER DEFAULT 0'],
+      ['usuarios', 'salario', 'REAL DEFAULT 0'],
+      ['usuarios', 'endereco', 'TEXT'],
+      ['usuarios', 'numero_conta', 'TEXT'],
+      ['usuarios', 'ultimo_login', 'TIMESTAMP'],
+      ['usuarios', 'pode_responder_mensagens', 'INTEGER DEFAULT 0'],
+      ['usuarios', 'foto', 'TEXT'],
+      ['usuarios', 'banco', 'TEXT'],
+      ['usuarios', 'tipo_conta', 'TEXT'],
+      ['usuarios', 'ativo', 'INTEGER DEFAULT 1'],
+      ['usuarios', 'tentativas_login', 'INTEGER DEFAULT 0'],
+      ['usuarios', 'bloqueado_ate', 'TIMESTAMP'],
+      ['faltas', 'tipo', 'TEXT'],
+      ['faltas', 'tipo_falta', "TEXT DEFAULT 'dia_inteiro'"],
+      ['servicos', 'pago', 'INTEGER DEFAULT 0'],
+      ['servicos_backup', 'pago', 'INTEGER DEFAULT 0'],
+      ['contact_messages', 'resposta', 'TEXT'],
+      ['contact_messages', 'respondida', 'INTEGER DEFAULT 0'],
+      ['contact_messages', 'updated_at', 'TIMESTAMP'],
+      ['contact_messages', 'resposta_anexo', 'TEXT'],
+      ['contact_messages', 'resposta_orcamento_id', 'INTEGER']
+    ];
+    for (const [tabela, coluna, def] of migracoes) {
+      try {
+        await sql.query(`ALTER TABLE ${tabela} ADD COLUMN IF NOT EXISTS ${coluna} ${def}`);
+      } catch (err) {
+        // Tabela pode ainda não existir ou outro erro — não bloqueia as restantes.
+        console.warn(`⚠ Migração ignorada (${tabela}.${coluna}):`, err.message);
+      }
+    }
+
     // Inserir configurações padrão
     await sql.query(`
       INSERT INTO configuracoes (chave, valor) VALUES 
