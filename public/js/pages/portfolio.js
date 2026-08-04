@@ -5,6 +5,31 @@ function getUserRole() {
   return data ? JSON.parse(data).role : null;
 }
 
+// ==================== TEXTOS CHAMATIVOS ====================
+const FALLBACK_DESCRICOES = {
+  'Gesso': 'Tectos de gesso com design elegante e acabamento impecável.',
+  'PVC': 'Tectos de PVC resistentes, práticos e fáceis de manter.',
+  'Modular': 'Tectos modulares modernos e versáteis para qualquer ambiente.',
+  'Pintura': 'Pintura profissional que dá vida e cor aos seus espaços.',
+  'Elétrica': 'Instalações elétricas seguras e bem integradas ao tecto.',
+  'Acabamentos': 'Acabamentos de alto padrão que valorizam o seu imóvel.'
+};
+
+const FILTROS = [
+  { nome: 'Todos', icono: '✨' },
+  { nome: 'Gesso', icono: '🧱' },
+  { nome: 'PVC', icono: '🔵' },
+  { nome: 'Modular', icono: '🔳' },
+  { nome: 'Pintura', icono: '🎨' },
+  { nome: 'Elétrica', icono: '⚡' },
+  { nome: 'Acabamentos', icono: '🛠️' }
+];
+
+// Evita injeção de HTML (XSS) nos textos vindos da API
+const escapeHtml = (str = '') => String(str).replace(/[&<>"']/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
 export default async function portfolioPage() {
   let portfolio = [];
   let config = {};
@@ -26,108 +51,172 @@ export default async function portfolioPage() {
   const empresaEmail = config.empresa_email || 'tectofalsosabao@gmail.com';
   const telefoneLimpo = empresaTelefone.replace(/[^\d]/g, '');
 
-  const tipos = ['Todos', 'Gesso', 'PVC', 'Modular', 'Pintura', 'Elétrica', 'Acabamentos'];
+  const tiposUnicos = [...new Set(portfolio.map(p => p.tipo_servico).filter(Boolean))];
+  const totalProjetos = portfolio.length;
+  const anosExperiencia = new Date().getFullYear() - 2011;
+
+  // Link do WhatsApp para o CTA
+  const textoOrcamento = encodeURIComponent('Olá! Vi o portfólio da Tecto Falso Sabão e quero pedir um orçamento para o meu projeto.');
+  const whatsappCta = `https://wa.me/${telefoneLimpo}?text=${textoOrcamento}`;
+
+  // ==================== HELPERS DE RENDERIZAÇÃO ====================
+  const mediaProjeto = (item) => {
+    if (item.imagem_url) {
+      return `<img src="${escapeHtml(item.imagem_url)}" class="pf-media" alt="${escapeHtml(item.titulo)}" loading="lazy">`;
+    }
+    if (item.video_url) {
+      return `
+        <video src="${escapeHtml(item.video_url)}" class="pf-media" muted playsinline preload="metadata"></video>
+        <span class="pf-play">▶</span>
+      `;
+    }
+    return `<div class="pf-media pf-media-placeholder">🏗️</div>`;
+  };
+
+  const statsHtml = totalProjetos > 0 ? `
+    <div class="pf-stats">
+      <div class="pf-stat">
+        <span class="pf-stat-value">${totalProjetos}</span>
+        <span class="pf-stat-label">Projetos Realizados</span>
+      </div>
+      <div class="pf-stat">
+        <span class="pf-stat-value">${anosExperiencia}+</span>
+        <span class="pf-stat-label">Anos de Experiência</span>
+      </div>
+      <div class="pf-stat">
+        <span class="pf-stat-value">${tiposUnicos.length || 6}</span>
+        <span class="pf-stat-label">Tipos de Serviço</span>
+      </div>
+      <div class="pf-stat">
+        <span class="pf-stat-value">100%</span>
+        <span class="pf-stat-label">Satisfação Garantida</span>
+      </div>
+    </div>
+  ` : '';
+
+  const cardsHtml = portfolio.length > 0 ? portfolio.map((item, index) => `
+    <article class="pf-card portfolio-item" data-tipo="${escapeHtml(item.tipo_servico || 'Outros')}">
+      <div class="pf-media-wrap" data-index="${index}">
+        ${mediaProjeto(item)}
+        <span class="pf-badge">${escapeHtml(item.tipo_servico || 'Projeto')}</span>
+        <span class="pf-num">${String(index + 1).padStart(2, '0')}</span>
+      </div>
+      <div class="pf-card-body">
+        <h3 class="pf-card-title">${escapeHtml(item.titulo)}</h3>
+        <p class="pf-card-desc">${escapeHtml(item.descricao || FALLBACK_DESCRICOES[item.tipo_servico] || 'Projeto exclusivo realizado com excelência e dedicação.')}</p>
+        <div class="pf-card-actions">
+          ${podeGerir ? `
+            <button class="pf-btn pf-btn-danger btn-delete-portfolio" data-id="${item.id}" title="Excluir projeto">
+              🗑️ Excluir
+            </button>
+          ` : ''}
+          <button class="pf-btn pf-btn-send btn-enviar-portfolio" data-id="${item.id}" data-titulo="${escapeHtml(item.titulo)}" data-imagem="${escapeHtml(item.imagem_url || '')}" data-video="${escapeHtml(item.video_url || '')}" data-tipo="${escapeHtml(item.tipo_servico || '')}">
+            ${podeGerir ? '📤 Partilhar' : '📤 Pedir Orçamento'}
+          </button>
+        </div>
+      </div>
+    </article>
+  `).join('') : `
+    <div class="pf-empty">
+      <div class="pf-empty-icon">📸</div>
+      <h3>Nenhum Projeto Cadastrado</h3>
+      <p>Em breve adicionaremos nossos projetos aqui. Fique atento!</p>
+    </div>
+  `;
 
   render(`
-    <div class="container">
-      <h1 class="text-center mb-3" style="font-size: 3rem; font-weight: 800;">Nosso Portfólio</h1>
-      <p class="text-center mb-3" style="font-size: 1.25rem; color: var(--gray); max-width: 800px; margin: 0 auto 3rem;">
-        Confira alguns dos nossos projetos realizados com excelência e dedicação.
-      </p>
+    <div class="pf-page">
 
-      <!-- Filters -->
-      <div class="tabs" id="portfolioTabs">
-        ${tipos.map((tipo, index) => `
-          <button class="tab ${index === 0 ? 'active' : ''}" data-tipo="${tipo}">
-            ${tipo}
-          </button>
-        `).join('')}
-      </div>
+      <!-- ==================== HERO ==================== -->
+      <section class="pf-hero">
+        <div class="pf-hero-inner">
+          <span class="pf-hero-badge">★ Portfólio de Excelência</span>
+          <h1 class="pf-hero-title">Projetos que <span class="pf-hero-gradient">Transformam</span> Ambientes</h1>
+          <p class="pf-hero-sub">
+            Cada obra conta uma história de qualidade, precisão e design. Explore os nossos projetos
+            e inspire-se para criar o espaço dos seus sonhos.
+          </p>
+          ${statsHtml}
+        </div>
+      </section>
 
-      <!-- Portfolio Grid -->
-      <div id="portfolioGrid" class="grid grid-3">
-        ${portfolio.length > 0 ? portfolio.map(item => `
-          <div class="card portfolio-item" data-tipo="${item.tipo_servico || 'Outros'}" style="position: relative;">
-            ${podeGerir ? `
-              <button class="btn-delete-portfolio" data-id="${item.id}" title="Excluir projeto" style="position: absolute; bottom: 1rem; right: 1rem; background: #ef4444; color: white; border-radius: var(--radius-md); padding: 0.5rem; display: flex; align-items: center; justify-content: center; z-index: 20; cursor: pointer; border: none; box-shadow: var(--shadow-sm);">
-                <span style="font-size: 0.875rem; font-weight: 600; margin-right: 0.5rem;">Excluir</span>
-                <span style="font-size: 1rem;">🗑️</span>
-              </button>
-            ` : ''}
-            ${item.imagem_url ? `
-              <img src="${item.imagem_url}" class="portfolio-media" alt="${item.titulo}" style="width: 100%; height: 250px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 1rem; cursor: pointer;">
-            ` : item.video_url ? `
-              <div style="position: relative;">
-                <video src="${item.video_url}" class="portfolio-media" controls preload="metadata" playsinline style="width: 100%; height: 250px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 1rem; cursor: pointer; background: #000;"></video>
-              </div>
-            ` : `
-              <div style="width: 100%; height: 250px; background: var(--gradient-primary); border-radius: var(--radius-lg); margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; font-size: 4rem; color: white;">
-                🏗️
-              </div>
-            `}
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">${item.titulo}</h3>
-            <p style="color: var(--gray); margin-bottom: 0.5rem;">${item.descricao || ''}</p>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
-              <span class="badge badge-primary">${item.tipo_servico || 'Outros'}</span>
-              ${!podeGerir ? `
-                <button class="btn-enviar-portfolio" data-id="${item.id}" data-titulo="${item.titulo}" data-imagem="${item.imagem_url || ''}" data-video="${item.video_url || ''}" style="background: #25D366; color: white; border: none; border-radius: var(--radius-md); padding: 0.4rem 0.75rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-                  📤 Enviar
-                </button>
-              ` : ''}
-            </div>
-          </div>
-        `).join('') : `
-          <div class="card text-center" style="grid-column: 1 / -1; padding: 3rem;">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">📸</div>
-            <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Nenhum Projeto Cadastrado</h3>
-            <p style="color: var(--gray);">Em breve adicionaremos nossos projetos aqui.</p>
-          </div>
-        `}
-      </div>
+      <div class="container">
 
-      ${podeGerir ? `
-        <!-- Upload Section (Admin/Funcionário) -->
-        <section class="section">
-          <div class="card">
-            <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem;">
-              ➕ Adicionar Novo Projeto
-            </h2>
-            <form id="portfolioForm">
-              <div class="form-group">
-                <label class="form-label">Título do Projeto</label>
-                <input type="text" class="form-input" id="titulo" required>
-              </div>
-              
-              <div class="form-group">
-                <label class="form-label">Descrição</label>
-                <textarea class="form-textarea" id="descricao"></textarea>
-              </div>
-              
-              <div class="form-group">
-                <label class="form-label">Tipo de Serviço</label>
-                <select class="form-select" id="tipo_servico" required>
-                  <option value="">Selecione...</option>
-                  <option value="Gesso">Teto de Gesso</option>
-                  <option value="PVC">Teto de PVC</option>
-                  <option value="Modular">Teto Modular</option>
-                  <option value="Pintura">Pintura</option>
-                  <option value="Elétrica">Instalação Elétrica</option>
-                  <option value="Acabamentos">Acabamentos</option>
-                </select>
-              </div>
-              
-              <div class="form-group">
-                <label class="form-label">Imagem ou Vídeo</label>
-                <input type="file" class="form-input" id="arquivo" accept="image/*,video/*">
-              </div>
-              
-              <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
-                Adicionar ao Portfólio
-              </button>
-            </form>
+        <!-- ==================== FILTROS ==================== -->
+        <div class="pf-filters" id="portfolioTabs">
+          ${FILTROS.map((f, index) => `
+            <button class="pf-filter ${index === 0 ? 'active' : ''}" data-tipo="${f.nome}">
+              <span class="pf-filter-icon">${f.icono}</span> ${f.nome}
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- ==================== QUADRO 2D DE PROJETOS (ROLAGEM AUTOMÁTICA) ==================== -->
+        <div class="pf-section-head">
+          <h2 class="pf-section-title">Nossos Projetos</h2>
+        </div>
+
+        <div class="pf-board" id="pfBoard">
+          <div class="pf-board-inner">
+            ${cardsHtml}
           </div>
+        </div>
+
+        <!-- ==================== CTA ==================== -->
+        <section class="pf-cta">
+          <div class="pf-cta-text">
+            <h3>Pronto para transformar o seu espaço?</h3>
+            <p>Peça um orçamento gratuito e veja o seu projeto ganhar vida com a nossa equipa especializada.</p>
+          </div>
+          <a class="pf-cta-btn" href="${whatsappCta}" target="_blank" rel="noopener">
+            💬 Pedir Orçamento Grátis
+          </a>
         </section>
-      ` : ''}
+
+        ${podeGerir ? `
+          <!-- Upload Section (Admin/Funcionário) -->
+          <section class="section">
+            <div class="card">
+              <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem;">
+                ➕ Adicionar Novo Projeto
+              </h2>
+              <form id="portfolioForm">
+                <div class="form-group">
+                  <label class="form-label">Título do Projeto</label>
+                  <input type="text" class="form-input" id="titulo" required>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Descrição</label>
+                  <textarea class="form-textarea" id="descricao"></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tipo de Serviço</label>
+                  <select class="form-select" id="tipo_servico" required>
+                    <option value="">Selecione...</option>
+                    <option value="Gesso">Teto de Gesso</option>
+                    <option value="PVC">Teto de PVC</option>
+                    <option value="Modular">Teto Modular</option>
+                    <option value="Pintura">Pintura</option>
+                    <option value="Elétrica">Instalação Elétrica</option>
+                    <option value="Acabamentos">Acabamentos</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Imagem ou Vídeo</label>
+                  <input type="file" class="form-input" id="arquivo" accept="image/*,video/*">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
+                  Adicionar ao Portfólio
+                </button>
+              </form>
+            </div>
+          </section>
+        ` : ''}
+      </div>
     </div>
 
     <!-- Lightbox -->
@@ -175,42 +264,58 @@ export default async function portfolioPage() {
         </div>
       </div>
     </div>
+
+    <!-- Orçamento Modal (escolha WhatsApp / Email) -->
+    <div id="orcamentoModal" class="modal" style="display: none;">
+      <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-header">
+          <h3 class="modal-title">📤 Pedir Orçamento</h3>
+          <span class="modal-close" id="orcamentoModalClose">&times;</span>
+        </div>
+        <div class="modal-body" style="text-align: center;">
+          <div id="orcamentoPreview" style="width: 100%; height: 160px; border-radius: var(--radius-lg); overflow: hidden; background: var(--light); margin-bottom: 0.75rem;">
+            <img id="orcamentoImg" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+            <video id="orcamentoVideo" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" muted></video>
+          </div>
+          <p id="orcamentoProjectName" style="font-weight: 700; color: var(--dark-700); margin: 0 0 1.25rem; font-size: 1.05rem;"></p>
+          <p style="color: var(--gray); font-size: 0.9rem; margin-bottom: 1.25rem;">
+            Escolha a forma de contacto que preferir e receba o seu orçamento rapidamente:
+          </p>
+
+          <button id="btnOrcWhatsApp" class="pf-choix-btn" style="width: 100%; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.95rem; margin-bottom: 0.75rem; font-weight: 700; font-size: 1.05rem; box-shadow: 0 6px 16px rgba(37, 211, 102, 0.35);">
+            💬 WhatsApp
+          </button>
+
+          <button id="btnOrcEmail" class="pf-choix-btn" style="width: 100%; background: #EA4335; color: white; display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.95rem; margin-bottom: 0.75rem; font-weight: 700; font-size: 1.05rem; box-shadow: 0 6px 16px rgba(234, 67, 53, 0.35);">
+            ✉️ Email
+          </button>
+        </div>
+      </div>
+    </div>
   `);
 
-  // Lightbox functionality
+  // ==================== LIGHTBOX ====================
   const lightbox = document.getElementById('lightbox');
   const lightboxContent = document.getElementById('lightboxContent');
   const lightboxClose = document.querySelector('.lightbox-close');
-  const portfolioMedia = document.querySelectorAll('.portfolio-media');
 
-  portfolioMedia.forEach(media => {
-    media.addEventListener('click', () => {
+  // Flag: evita abrir o lightbox após um arraste no carrossel
+  let draggedFar = false;
+
+  document.querySelectorAll('.pf-media-wrap').forEach(wrap => {
+    wrap.addEventListener('click', () => {
+      if (draggedFar) return;
+      const media = wrap.querySelector('.pf-media');
       const src = media.getAttribute('src');
       if (media.tagName === 'IMG') {
         lightboxContent.innerHTML = `<img src="${src}" class="lightbox-content">`;
       } else if (media.tagName === 'VIDEO') {
         lightboxContent.innerHTML = `<video src="${src}" class="lightbox-content" controls autoplay></video>`;
+      } else {
+        return; // placeholder sem mídia
       }
       lightbox.classList.add('active');
-      document.body.style.overflow = 'hidden'; // Prevent scrolling
-    });
-  });
-
-  // Delete functionality
-  const deleteButtons = document.querySelectorAll('.btn-delete-portfolio');
-  deleteButtons.forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation(); // Prevent opening lightbox
-      const id = btn.dataset.id;
-      if (confirm('Tem certeza que deseja excluir este projeto do portfólio?')) {
-        try {
-          await api.delete(`/portfolio/${id}`);
-          showSuccess('Projecto apagado com sucesso!');
-        } catch (error) {
-          console.error('Error deleting:', error);
-          showError('Erro ao excluir projeto');
-        }
-      }
+      document.body.style.overflow = 'hidden';
     });
   });
 
@@ -226,37 +331,173 @@ export default async function portfolioPage() {
     }
   });
 
-  // Close on escape key
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && lightbox.classList.contains('active')) {
       closeLightbox();
     }
   });
 
-  // Filter functionality
-  const tabs = document.querySelectorAll('.tab');
+  // ==================== EXCLUIR PROJETO ====================
+  document.querySelectorAll('.btn-delete-portfolio').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (confirm('Tem certeza que deseja excluir este projeto do portfólio?')) {
+        try {
+          await api.delete(`/portfolio/${id}`);
+          showSuccess('Projecto apagado com sucesso!');
+        } catch (error) {
+          console.error('Error deleting:', error);
+          showError('Erro ao excluir projeto');
+        }
+      }
+    });
+  });
+
+  // ==================== FILTROS ====================
+  const filters = document.querySelectorAll('.pf-filter');
   const items = document.querySelectorAll('.portfolio-item');
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const tipo = tab.dataset.tipo;
+  filters.forEach(filter => {
+    filter.addEventListener('click', () => {
+      const tipo = filter.dataset.tipo;
 
-      // Update active tab
-      tabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
+      filters.forEach(f => f.classList.remove('active'));
+      filter.classList.add('active');
 
-      // Filter items
       items.forEach(item => {
-        if (tipo === 'Todos' || item.dataset.tipo === tipo) {
-          item.style.display = 'block';
-        } else {
-          item.style.display = 'none';
-        }
+        item.style.display = (tipo === 'Todos' || item.dataset.tipo === tipo) ? 'block' : 'none';
       });
     });
   });
 
-  // Form submission (admin/funcionario only)
+  // ==================== QUADRO 2D (ROLAGEM AUTOMÁTICA) ====================
+  const board = document.getElementById('pfBoard');
+
+  const PASSO = 360;
+
+  // Rola automaticamente o quadro (percorre ↑ ↓ ← → sem interação)
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const VELOCIDADE_AUTO = 2;   // px por frame (~83px/s) — ajuste aqui para mais rápido/lento
+  const INTERVALO_AUTO = 24;   // ms entre frames
+  let autoPanId = null;
+  let autoPanPaused = false;
+
+  const stopAutoPan = () => {
+    if (autoPanId) { clearInterval(autoPanId); autoPanId = null; }
+  };
+
+  const startAutoPan = () => {
+    if (prefersReduced) return;
+    stopAutoPan();
+    let phase = 'right';
+    autoPanId = setInterval(() => {
+      if (autoPanPaused || document.hidden) return;
+      const maxX = board.scrollWidth - board.clientWidth;
+      const maxY = board.scrollHeight - board.clientHeight;
+      if (maxX <= 0 && maxY <= 0) { stopAutoPan(); return; }
+      switch (phase) {
+        case 'right':
+          if (board.scrollLeft < maxX) board.scrollLeft += VELOCIDADE_AUTO;
+          else phase = maxY > 0 ? 'down' : 'left';
+          break;
+        case 'down':
+          if (board.scrollTop < maxY) board.scrollTop += VELOCIDADE_AUTO;
+          else phase = 'left';
+          break;
+        case 'left':
+          if (board.scrollLeft > 0) board.scrollLeft -= VELOCIDADE_AUTO;
+          else phase = maxY > 0 ? 'up' : 'right';
+          break;
+        case 'up':
+          if (board.scrollTop > 0) board.scrollTop -= VELOCIDADE_AUTO;
+          else phase = 'right';
+          break;
+      }
+    }, INTERVALO_AUTO);
+  };
+
+  // Pausa ao passar o rato / tocar, para o utilizador ver os projetos com calma
+  board.addEventListener('mouseenter', () => { autoPanPaused = true; });
+  board.addEventListener('mouseleave', () => { autoPanPaused = false; });
+  board.addEventListener('touchstart', () => { autoPanPaused = true; }, { passive: true });
+  board.addEventListener('touchend', () => { setTimeout(() => { autoPanPaused = false; }, 3000); });
+
+  startAutoPan();
+
+  // Arraste com o rato em qualquer direção (pan 2D)
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragStartScrollLeft = 0;
+  let dragStartScrollTop = 0;
+  let movedTotal = 0;
+
+  board.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button')) return;
+    isDragging = true;
+    dragStartX = e.pageX;
+    dragStartY = e.pageY;
+    dragStartScrollLeft = board.scrollLeft;
+    dragStartScrollTop = board.scrollTop;
+    movedTotal = 0;
+    board.classList.add('pf-dragging');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.pageX - dragStartX;
+    const dy = e.pageY - dragStartY;
+    movedTotal = Math.max(Math.abs(dx), Math.abs(dy));
+    if (movedTotal > 8) draggedFar = true;
+    board.scrollLeft = dragStartScrollLeft - dx;
+    board.scrollTop = dragStartScrollTop - dy;
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    board.classList.remove('pf-dragging');
+    setTimeout(() => { draggedFar = false; }, 80);
+  });
+
+  // Teclado ↑ ↓ ← → quando o quadro está focado
+  board.addEventListener('keydown', (e) => {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      const delta = {
+        ArrowUp: { top: -PASSO },
+        ArrowDown: { top: PASSO },
+        ArrowLeft: { left: -PASSO },
+        ArrowRight: { left: PASSO }
+      }[e.key];
+      board.scrollBy({ ...delta, behavior: 'smooth' });
+    }
+  });
+  board.setAttribute('tabindex', '0');
+  // A rodinha do rato rola para cima/baixo e, com Shift, para os lados
+  // (comportamento nativo de um contentor com overflow em ambas as direções)
+
+  // ==================== ANIMAÇÃO DE ENTRADA ====================
+  const revealCards = () => {
+    if (typeof IntersectionObserver !== 'undefined') {
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('pf-visible');
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      document.querySelectorAll('.pf-card').forEach(card => revealObserver.observe(card));
+    } else {
+      // Fallback: mostrar todos os cards imediatamente
+      document.querySelectorAll('.pf-card').forEach(card => card.classList.add('pf-visible'));
+    }
+  };
+  revealCards();
+
+  // ==================== FORMULÁRIO (ADMIN/FUNCIONÁRIO) ====================
   const form = document.getElementById('portfolioForm');
   if (form) {
     form.addEventListener('submit', async (e) => {
@@ -291,6 +532,10 @@ export default async function portfolioPage() {
   let shareItemVideo = '';
   let shareItemTipo = '';
 
+  // ==================== ORÇAMENTO MODAL (ESCOLHA WHATSAPP / EMAIL) ====================
+  const orcamentoModal = document.getElementById('orcamentoModal');
+  const orcamentoModalClose = document.getElementById('orcamentoModalClose');
+
   document.querySelectorAll('.btn-enviar-portfolio').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -300,6 +545,28 @@ export default async function portfolioPage() {
       shareItemVideo = btn.dataset.video;
       shareItemTipo = btn.dataset.tipo || '';
 
+      // Cliente: modal de escolha (WhatsApp / Email)
+      if (!podeGerir) {
+        document.getElementById('orcamentoProjectName').textContent = shareItemTitulo;
+
+        const imgOrc = document.getElementById('orcamentoImg');
+        const videoOrc = document.getElementById('orcamentoVideo');
+        imgOrc.style.display = 'none';
+        videoOrc.style.display = 'none';
+
+        if (shareItemVideo) {
+          videoOrc.src = shareItemVideo;
+          videoOrc.style.display = 'block';
+        } else if (shareItemImagem) {
+          imgOrc.src = shareItemImagem;
+          imgOrc.style.display = 'block';
+        }
+
+        orcamentoModal.style.display = 'flex';
+        return;
+      }
+
+      // Admin/Funcionário: modal de partilha completo
       document.getElementById('shareModalTitle').textContent = `📤 ${shareItemTitulo}`;
       document.getElementById('shareProjectName').textContent = shareItemTitulo;
 
@@ -319,6 +586,35 @@ export default async function portfolioPage() {
       document.getElementById('shareMessage').value = 'Gostei deste modelo! Quero usar este modelo para minha casa.';
       shareModal.style.display = 'flex';
     });
+  });
+
+  // Botões do modal de orçamento (WhatsApp / Email)
+  document.getElementById('btnOrcWhatsApp').addEventListener('click', () => {
+    const tipoInfo = shareItemTipo ? ` (${shareItemTipo})` : '';
+    const mensagem = `Olá! Vi o projeto *${shareItemTitulo}*${tipoInfo} no portfólio da Tecto Falso Sabão e gostaria de pedir um orçamento.`;
+    const url = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, '_blank');
+    orcamentoModal.style.display = 'none';
+    showSuccess('Redirecionando para WhatsApp...');
+  });
+
+  document.getElementById('btnOrcEmail').addEventListener('click', () => {
+    const assunto = `Pedido de Orçamento - ${shareItemTitulo}`;
+    const corpo = `Olá! Vi o projeto "${shareItemTitulo}" no portfólio da Tecto Falso Sabão e gostaria de pedir um orçamento.\n\nMensagem:`;
+    const url = `mailto:${empresaEmail}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+    window.location.href = url;
+    orcamentoModal.style.display = 'none';
+    showSuccess('Redirecionando para Email...');
+  });
+
+  orcamentoModalClose.addEventListener('click', () => {
+    orcamentoModal.style.display = 'none';
+  });
+
+  orcamentoModal.addEventListener('click', (e) => {
+    if (e.target === orcamentoModal) {
+      orcamentoModal.style.display = 'none';
+    }
   });
 
   // Enviar ao Admin via sistema interno

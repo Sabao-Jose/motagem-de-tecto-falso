@@ -1,213 +1,259 @@
-import { render } from '../app.js';
+import { render, api } from '../app.js';
 
 export default async function empresaPage() {
+  // Carrega dados reais (configurações) para contactos
+  let config = {};
+  try {
+    const configRes = await api.get('/configuracoes').catch(() => ({ configuracoes: {} }));
+    config = configRes.configuracoes || {};
+  } catch (e) {
+    // usa valores padrão em caso de erro
+  }
+
+  const telefone = config.empresa_telefone || '+258870296633';
+  const telefoneLimpo = telefone.replace(/[^+\d]/g, '');
+  const email = config.empresa_email || 'tectofalsosabao@gmail.com';
+  const whatsappUrl = `https://wa.me/${telefoneLimpo}?text=${encodeURIComponent('Olá! Gostaria de saber mais sobre a Tecto Falso Sabao.')}`;
+
   render(`
-    <div class="container">
-      <h1 class="text-center mb-3" style="font-size: 3rem; font-weight: 800;">Sobre Nossa Empresa</h1>
-      
-      <!-- Hero -->
-      <section class="section">
-        <div style="
-          position: relative;
-          border-radius: var(--radius-lg);
-          overflow: hidden;
-          height: 420px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-        ">
-          <img 
-            src="images/empresa_hero.jpg" 
-            alt="Tecto Falso Sabao" 
-            style="
-              width: 100%; 
-              height: 100%; 
-              object-fit: cover; 
-              object-position: center;
-              image-rendering: -webkit-optimize-contrast;
-              image-rendering: crisp-edges;
-              filter: contrast(1.08) saturate(1.1) brightness(0.95);
-              display: block;
-            "
-          >
-          <!-- Overlay gradiente escuro por baixo para legibilidade do texto -->
-          <div style="
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 55%, rgba(0,0,0,0) 100%);
-          "></div>
-          <!-- Texto por cima da imagem -->
-          <div style="
-            position: absolute;
-            bottom: 4rem; left: 0; right: 0;
-            padding: 2.5rem 3rem;
-            color: white;
-            text-align: center;
-          ">
-            <h2 style="font-size: 2.8rem; font-weight: 800; margin-bottom: 0.75rem; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">
-              <span style="color: #3b82f6;">Tecto Falso</span> <span style="color: #ef4444;">Sabao</span>
-            </h2>
-            <p style="font-size: 1.2rem; opacity: 0.95; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">
-              Referência em montagem de tectos falsos em Moçambique desde 2011
-            </p>
-          </div>
-        </div>
-      </section>
+    <div class="container emp-page">
 
-      <!-- Nossa História -->
-      <section class="section">
-        <div class="card">
-          <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 250px;">
-              <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--primary);">
-                📖 Nossa História
-              </h2>
-              <p style="color: var(--gray); line-height: 1.8; margin-bottom: 1rem;">
-                Fundada em 2020, a <span style="color: #3b82f6;">Tecto Falso</span> <span style="color: #ef4444;">Sabao</span> nasceu com o objetivo de revolucionar o mercado de montagem de tetos falsos em Moçambique. Com uma equipe altamente qualificada e comprometida com a excelência, rapidamente nos tornamos referência no setor.
-              </p>
-              <p style="color: var(--gray); line-height: 1.8; margin-bottom: 1rem;">
-                Nosso diferencial está na combinação de técnicas tradicionais de construção civil com tecnologia moderna de gestão e cálculo de materiais. Desenvolvemos um sistema próprio que garante precisão nos orçamentos e elimina desperdícios.
-              </p>
-              <p style="color: var(--gray); line-height: 1.8;">
-                Hoje, atendemos clientes residenciais, comerciais e industriais, sempre com o mesmo compromisso: entregar qualidade superior e satisfação total.
-              </p>
-            </div>
-            <div style="flex-shrink: 0; text-align: center;">
-              <img src="images/sabao5.jpg" alt="Jaime J J Sabao" style="width: 200px; height: 200px; object-fit: cover; border-radius: 50%; border: 4px solid var(--primary); box-shadow: 0 8px 32px rgba(0,0,0,0.15);" onerror="this.style.display='none'">
-              <p style="margin-top: 0.75rem; font-weight: 600; color: var(--primary);">JOSE JAIME SABAO MATIQUE</p>
-              <p style="font-size: 0.85rem; color: var(--gray);">Fundador</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Missão, Visão e Valores -->
-      <section class="section">
-        <div class="grid grid-3">
-          <div class="card">
-            <div style="font-size: 4rem; text-align: center; margin-bottom: 1rem;">🎯</div>
-            <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; text-align: center; color: var(--primary);">
-              Missão
-            </h3>
-            <p style="color: var(--gray); text-align: center; line-height: 1.6;">
-              Proporcionar soluções em tetos falsos com excelência técnica, transparência e compromisso com a satisfação do cliente.
-            </p>
-          </div>
-          
-          <div class="card">
-            <div style="font-size: 4rem; text-align: center; margin-bottom: 1rem;">👁️</div>
-            <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; text-align: center; color: var(--secondary);">
-              Visão
-            </h3>
-            <p style="color: var(--gray); text-align: center; line-height: 1.6;">
-              Ser a empresa mais confiável e inovadora do setor de tetos falsos em Moçambique até 2030.
-            </p>
-          </div>
-          
-          <div class="card">
-            <div style="font-size: 4rem; text-align: center; margin-bottom: 1rem;">⭐</div>
-            <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; text-align: center; color: var(--accent);">
-              Valores
-            </h3>
-            <p style="color: var(--gray); text-align: center; line-height: 1.6;">
-              Qualidade, Transparência, Inovação, Compromisso e Respeito ao Cliente.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Diferenciais -->
-      <section class="section">
-        <h2 class="text-center mb-3" style="font-size: 2.5rem; font-weight: 800;">Nossos Diferenciais</h2>
-        
-        <div class="grid grid-2">
-          <div class="card">
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary);">
-              ✅ Equipe Qualificada
-            </h3>
-            <p style="color: var(--gray);">
-              Profissionais certificados e com vasta experiência em montagem de tetos falsos.
-            </p>
-          </div>
-          
-          <div class="card">
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary);">
-              ✅ Tecnologia Própria
-            </h3>
-            <p style="color: var(--gray);">
-              Sistema exclusivo de cálculo de materiais que garante precisão e economia.
-            </p>
-          </div>
-          
-          <div class="card">
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary);">
-              ✅ Materiais de Qualidade
-            </h3>
-            <p style="color: var(--gray);">
-              Trabalhamos apenas com fornecedores certificados e materiais de primeira linha.
-            </p>
-          </div>
-          
-          <div class="card">
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary);">
-              ✅ Garantia Total
-            </h3>
-            <p style="color: var(--gray);">
-              Todos os nossos serviços possuem garantia de qualidade e durabilidade.
-            </p>
-          </div>
-          
-          <div class="card">
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary);">
-              ✅ Atendimento Personalizado
-            </h3>
-            <p style="color: var(--gray);">
-              Cada projeto é único e recebe atenção especial da nossa equipe.
-            </p>
-          </div>
-          
-          <div class="card">
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary);">
-              ✅ Prazos Cumpridos
-            </h3>
-            <p style="color: var(--gray);">
-              Comprometimento com cronogramas e entrega dentro do prazo acordado.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Certificações -->
-      <section class="section">
-        <div class="card text-center" style="background: var(--light); padding: 3rem;">
-          <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1.5rem;">Certificações e Qualificações</h2>
-          <div class="grid grid-4">
-            <div>
-              <div style="font-size: 3rem; margin-bottom: 0.5rem;">🏆</div>
-              <p style="font-weight: 600;">Empresa Certificada</p>
-            </div>
-            <div>
-              <div style="font-size: 3rem; margin-bottom: 0.5rem;">👷</div>
-              <p style="font-weight: 600;">Equipe Treinada</p>
-            </div>
-            <div>
-              <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔒</div>
-              <p style="font-weight: 600;">Segurança no Trabalho</p>
-            </div>
-            <div>
-              <div style="font-size: 3rem; margin-bottom: 0.5rem;">♻️</div>
-              <p style="font-weight: 600;">Práticas Sustentáveis</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- CTA -->
-      <section class="section">
-        <div class="card text-center" style="background: var(--gradient-primary); color: white; padding: 3rem;">
-          <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">Faça Parte da Nossa História</h2>
-          <p style="font-size: 1.125rem; margin-bottom: 2rem; opacity: 0.95;">
-            Entre em contato e descubra como podemos transformar seu projeto em realidade.
+      <!-- ============ HERO ============ -->
+      <section class="emp-hero">
+        <div class="emp-hero-inner">
+          <span class="emp-hero-badge">🏢 Nossa Empresa</span>
+          <h1 class="emp-hero-title">
+            <span class="emp-brand-blue">Tecto Falso</span> <span class="emp-brand-red">Sabao</span>
+          </h1>
+          <p class="emp-hero-sub">
+            Referência em montagem de tectos falsos em Moçambique desde 2011.
+            Qualidade, precisão e dedicação em cada projeto — do primeiro contacto à entrega final.
           </p>
-          <a href="#contato" class="btn btn-secondary btn-large" style="transition: all 0.3s ease;" onmouseenter="this.style.boxShadow='0 0 30px rgba(99, 102, 241, 0.8)'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.boxShadow='none'; this.style.transform='none';">Fale Conosco</a>
+          <div class="emp-stats">
+            <div class="emp-stat">
+              <div class="emp-stat-value">15+</div>
+              <div class="emp-stat-label">Anos de Experiência</div>
+            </div>
+            <div class="emp-stat">
+              <div class="emp-stat-value">100%</div>
+              <div class="emp-stat-label">Clientes Satisfeitos</div>
+            </div>
+            <div class="emp-stat">
+              <div class="emp-stat-value">Garantia</div>
+              <div class="emp-stat-label">Qualidade Garantida</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ NOSSA HISTÓRIA ============ -->
+      <section class="emp-section">
+        <div class="emp-section-head">
+          <span class="emp-section-eyebrow">Quem Somos</span>
+          <h2 class="emp-section-title">Uma história construída com <span class="grad">excelência</span></h2>
+          <p class="emp-section-sub">Mais de uma década dedicada a transformar ambientes com tectos falsos de qualidade superior.</p>
+        </div>
+
+        <div class="emp-history">
+          <div class="emp-history-text">
+            <p>
+              Fundada em <strong>2011</strong>, a <strong>Tecto Falso Sabao</strong> nasceu com o objetivo de
+              revolucionar o mercado de montagem de tectos falsos em Moçambique. Com uma equipa altamente
+              qualificada e comprometida com a excelência, rapidamente nos tornámos referência no sector.
+            </p>
+            <p>
+              O nosso diferencial está na combinação de técnicas tradicionais de construção civil com tecnologia
+              moderna de gestão e cálculo de materiais. Desenvolvemos um sistema próprio que garante precisão nos
+              orçamentos e elimina desperdícios.
+            </p>
+            <p>
+              Hoje, atendemos clientes <strong>residenciais, comerciais e industriais</strong>, sempre com o mesmo
+              compromisso: entregar qualidade superior e satisfação total.
+            </p>
+            <ul class="emp-history-list">
+              <li><span class="emp-hi-icon">✓</span> Fundada em 2011, líder em Moçambique</li>
+              <li><span class="emp-hi-icon">✓</span> Equipa certificada e em formação contínua</li>
+              <li><span class="emp-hi-icon">✓</span> Sistema próprio de cálculo de materiais</li>
+              <li><span class="emp-hi-icon">✓</span> Compromisso com prazos e qualidade</li>
+            </ul>
+          </div>
+
+          <div class="emp-founder">
+            <div class="emp-founder-img">
+              <img src="images/sabao5.jpg" alt="JOSE JAIME SABAO MATIQUE" onerror="this.style.display='none'">
+            </div>
+            <p class="emp-founder-name">JOSE JAIME SABAO MATIQUE</p>
+            <p class="emp-founder-role">Fundador &amp; Diretor Geral</p>
+            <span class="emp-founder-tag">Desde 2011</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ MISSÃO / VISÃO / VALORES ============ -->
+      <section class="emp-section">
+        <div class="emp-section-head">
+          <span class="emp-section-eyebrow">Os Nossos Pilares</span>
+          <h2 class="emp-section-title">O que nos <span class="grad">move</span> todos os dias</h2>
+        </div>
+
+        <div class="emp-mvv-grid">
+          <div class="emp-mvv-card">
+            <div class="emp-mvv-icon blue">🎯</div>
+            <h3 class="emp-mvv-title">Missão</h3>
+            <p class="emp-mvv-desc">
+              Proporcionar soluções em tectos falsos com excelência técnica, transparência e compromisso
+              com a satisfação do cliente.
+            </p>
+          </div>
+
+          <div class="emp-mvv-card">
+            <div class="emp-mvv-icon pink">👁️</div>
+            <h3 class="emp-mvv-title">Visão</h3>
+            <p class="emp-mvv-desc">
+              Ser a empresa mais confiável e inovadora do sector de tectos falsos em Moçambique até 2030.
+            </p>
+          </div>
+
+          <div class="emp-mvv-card">
+            <div class="emp-mvv-icon teal">⭐</div>
+            <h3 class="emp-mvv-title">Valores</h3>
+            <p class="emp-mvv-desc">
+              Qualidade, Transparência, Inovação, Compromisso e Respeito ao Cliente — em cada detalhe do nosso trabalho.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ COMO TRABALHAMOS ============ -->
+      <section class="emp-section">
+        <div class="emp-section-head">
+          <span class="emp-section-eyebrow">Processo Simples</span>
+          <h2 class="emp-section-title">Como <span class="grad">trabalhamos</span></h2>
+          <p class="emp-section-sub">Do primeiro contacto à entrega final, um processo claro e sem complicações.</p>
+        </div>
+
+        <div class="emp-steps">
+          <div class="emp-step">
+            <span class="emp-step-num">01</span>
+            <div class="emp-step-icon">📞</div>
+            <h4>Contacto</h4>
+            <p>Fale connosco e explique o seu projeto. Respondemos rapidamente com total atenção às suas necessidades.</p>
+          </div>
+          <div class="emp-step">
+            <span class="emp-step-num">02</span>
+            <div class="emp-step-icon">📐</div>
+            <h4>Orçamento Grátis</h4>
+            <p>Visita técnica e orçamento detalhado sem compromisso, com precisão e sem surpresas nos preços.</p>
+          </div>
+          <div class="emp-step">
+            <span class="emp-step-num">03</span>
+            <div class="emp-step-icon">🔨</div>
+            <h4>Execução</h4>
+            <p>A nossa equipa especializada executa com qualidade, cumprindo prazos e mantendo o local limpo.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DIFERENCIAIS ============ -->
+      <section class="emp-section">
+        <div class="emp-section-head">
+          <span class="emp-section-eyebrow">Porquê Escolher-nos</span>
+          <h2 class="emp-section-title">Nossos <span class="grad">diferenciais</span></h2>
+          <p class="emp-section-sub">Motivos pelos quais centenas de clientes confiam na Tecto Falso Sabao.</p>
+        </div>
+
+        <div class="emp-feature-grid">
+          <div class="emp-feature-card">
+            <div class="emp-feature-icon">👷</div>
+            <div>
+              <h4>Equipa Qualificada</h4>
+              <p>Profissionais certificados e com vasta experiência em montagem de tectos falsos.</p>
+            </div>
+          </div>
+
+          <div class="emp-feature-card">
+            <div class="emp-feature-icon">💡</div>
+            <div>
+              <h4>Tecnologia Própria</h4>
+              <p>Sistema exclusivo de cálculo de materiais que garante precisão e economia.</p>
+            </div>
+          </div>
+
+          <div class="emp-feature-card">
+            <div class="emp-feature-icon">🏆</div>
+            <div>
+              <h4>Materiais de Qualidade</h4>
+              <p>Trabalhamos apenas com fornecedores certificados e materiais de primeira linha.</p>
+            </div>
+          </div>
+
+          <div class="emp-feature-card">
+            <div class="emp-feature-icon">🛡️</div>
+            <div>
+              <h4>Garantia Total</h4>
+              <p>Todos os nossos serviços possuem garantia de qualidade e durabilidade.</p>
+            </div>
+          </div>
+
+          <div class="emp-feature-card">
+            <div class="emp-feature-icon">🤝</div>
+            <div>
+              <h4>Atendimento Personalizado</h4>
+              <p>Cada projeto é único e recebe atenção especial da nossa equipa.</p>
+            </div>
+          </div>
+
+          <div class="emp-feature-card">
+            <div class="emp-feature-icon">⏰</div>
+            <div>
+              <h4>Prazos Cumpridos</h4>
+              <p>Comprometimento com cronogramas e entrega dentro do prazo acordado.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CERTIFICAÇÕES ============ -->
+      <section class="emp-section">
+        <div class="emp-section-head">
+          <span class="emp-section-eyebrow">Confiança</span>
+          <h2 class="emp-section-title">Certificações e <span class="grad">qualificações</span></h2>
+        </div>
+
+        <div class="emp-cert-grid">
+          <div class="emp-cert-card">
+            <div class="emp-cert-icon">🏆</div>
+            <p>Empresa Certificada</p>
+          </div>
+          <div class="emp-cert-card">
+            <div class="emp-cert-icon">👷</div>
+            <p>Equipa Treinada</p>
+          </div>
+          <div class="emp-cert-card">
+            <div class="emp-cert-icon">🔒</div>
+            <p>Segurança no Trabalho</p>
+          </div>
+          <div class="emp-cert-card">
+            <div class="emp-cert-icon">♻️</div>
+            <p>Práticas Sustentáveis</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CTA ============ -->
+      <section class="emp-section">
+        <div class="emp-cta">
+          <div class="emp-cta-inner">
+            <h3>Pronto para transformar o seu ambiente? 🚀</h3>
+            <p>
+              Peça o seu orçamento gratuito hoje mesmo. A nossa equipa está pronta para
+              tornar o seu projeto em realidade com qualidade e no prazo.
+            </p>
+            <div class="emp-cta-actions">
+              <a href="${whatsappUrl}" target="_blank" rel="noopener" class="emp-btn emp-btn-whatsapp">💬 Pedir Orçamento no WhatsApp</a>
+              <a href="mailto:${email}" class="emp-btn emp-btn-ghost">✉️ Enviar Email</a>
+            </div>
+          </div>
         </div>
       </section>
     </div>

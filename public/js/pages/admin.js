@@ -67,44 +67,58 @@ export default async function adminPage() {
     const hoje = new Date().toISOString().split('T')[0];
 
     render(`
-    <div class="container">
-        <div class="flex-between" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
-            <div>
-                <h1 style="font-size: 2.5rem; font-weight: 800; margin: 0;">Painel Admin</h1>
-                <p style="color: var(--gray); margin: 0;">Gestão completa do sistema</p>
-            </div>
-            <div class="flex" style="gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                <button class="btn btn-outline" style="font-size: 0.7rem; padding: 0.25rem 0.6rem; transition: all 0.3s ease;" onclick="abrirPesquisaGeral()" onmouseenter="this.style.boxShadow='0 0 25px rgba(79, 70, 229, 0.7)'; this.style.borderColor='var(--primary-dark)'; this.style.transform='translateY(-1px)';" onmouseleave="this.style.boxShadow='none'; this.style.borderColor='var(--primary)'; this.style.transform='none';">🔍</button>
-                <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; transition: all 0.3s ease;" onclick="abrirListaClientes()" onmouseenter="this.style.boxShadow='0 0 25px rgba(16, 185, 129, 0.7)'; this.style.borderColor='#10b981'; this.style.transform='translateY(-1px)';" onmouseleave="this.style.boxShadow='none'; this.style.borderColor='var(--primary)'; this.style.transform='none';">👥 Clientes</button>
-                <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; transition: all 0.3s ease;" onclick="abrirListaPagamentos()" onmouseenter="this.style.boxShadow='0 0 25px rgba(245, 158, 11, 0.7)'; this.style.borderColor='#f59e0b'; this.style.transform='translateY(-1px)';" onmouseleave="this.style.boxShadow='none'; this.style.borderColor='var(--primary)'; this.style.transform='none';">💳 Pagamentos</button>
-                <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; transition: all 0.3s ease;" onclick="abrirListaPedidos()" onmouseenter="this.style.boxShadow='0 0 25px rgba(139, 92, 246, 0.7)'; this.style.borderColor='#8b5cf6'; this.style.transform='translateY(-1px)';" onmouseleave="this.style.boxShadow='none'; this.style.borderColor='var(--primary)'; this.style.transform='none';">📨 Pedidos</button>
-                <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; transition: all 0.3s ease;" onclick="abrirSistemaRelatoriosAdmin()" onmouseenter="this.style.boxShadow='0 0 25px rgba(79, 70, 229, 0.7)'; this.style.borderColor='var(--primary-dark)'; this.style.transform='translateY(-1px)';" onmouseleave="this.style.boxShadow='none'; this.style.borderColor='var(--primary)'; this.style.transform='none';">📈 Relatórios</button>
-                <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; transition: all 0.3s ease; background: linear-gradient(135deg, #7c3aed, #2563eb); color: white; border: none;" onclick="abrirAgenteIntel()" onmouseenter="this.style.boxShadow='0 0 25px rgba(124, 58, 237, 0.7)'; this.style.transform='translateY(-1px)';" onmouseleave="this.style.boxShadow='none'; this.style.transform='none';">🤖 Agente</button>
-                <span class="badge badge-primary">Admin</span>
+    <div class="container admin-panel">
+        <!-- Admin Hero -->
+        <div class="admin-hero">
+            <div class="admin-hero-glow admin-hero-glow-1"></div>
+            <div class="admin-hero-glow admin-hero-glow-2"></div>
+            <div class="admin-hero-inner">
+                <div>
+                    <div class="admin-hero-eyebrow">🎛️ Sistema de Gestão</div>
+                    <h1 class="admin-hero-title">Painel Admin</h1>
+                    <p class="admin-hero-sub">Gestão completa do sistema — utilizadores, funcionários, finanças e muito mais</p>
+                </div>
+                <div class="admin-hero-actions">
+                    <button class="admin-hero-btn" onclick="abrirPesquisaGeral()" title="Pesquisa Geral">🔍 <span>Pesquisar</span></button>
+                    <button class="admin-hero-btn" onclick="abrirListaClientes()" title="Lista de Clientes">👥 <span>Clientes</span></button>
+                    <button class="admin-hero-btn" onclick="abrirListaPagamentos()" title="Lista de Pagamentos">💳 <span>Pagamentos</span></button>
+                    <button class="admin-hero-btn" onclick="abrirListaPedidos()" title="Lista de Pedidos">📨 <span>Pedidos</span></button>
+                    <button class="admin-hero-btn" onclick="abrirSistemaRelatoriosAdmin()" title="Sistema de Relatórios">📈 <span>Relatórios</span></button>
+                    <button class="admin-hero-btn admin-hero-btn-ai" onclick="abrirAgenteIntel()" title="Agente Inteligente">🤖 <span>Agente</span></button>
+                    <span class="badge badge-primary admin-hero-badge">Admin</span>
+                </div>
             </div>
         </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-4 mb-3">
-            <div class="card text-center" style="padding: 1.25rem;">
-                <div style="font-size: 2rem; color: var(--primary); margin-bottom: 0.25rem;">👥</div>
-                <h3 style="font-size: 1.75rem; font-weight: 800; margin: 0; color: var(--primary);">${usuarios.length}</h3>
-                <p style="font-size: 0.85rem; color: var(--gray); margin: 0;">Utilizadores</p>
+        <div class="admin-stat-grid">
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon admin-stat-icon--purple">👥</div>
+                <div>
+                    <h3 class="admin-stat-value">${usuarios.length}</h3>
+                    <p class="admin-stat-label">Utilizadores</p>
+                </div>
             </div>
-            <div class="card text-center" style="padding: 1.25rem;">
-                <div style="font-size: 2rem; color: var(--secondary); margin-bottom: 0.25rem;">📋</div>
-                <h3 style="font-size: 1.75rem; font-weight: 800; margin: 0; color: var(--secondary);">${estatisticas.total_servicos || 0}</h3>
-                <p style="font-size: 0.85rem; color: var(--gray); margin: 0;">Serviços</p>
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon admin-stat-icon--blue">📋</div>
+                <div>
+                    <h3 class="admin-stat-value">${estatisticas.total_servicos || 0}</h3>
+                    <p class="admin-stat-label">Serviços</p>
+                </div>
             </div>
-            <div class="card text-center" style="padding: 1.25rem;">
-                <div style="font-size: 2rem; color: var(--accent); margin-bottom: 0.25rem;">💰</div>
-                <h3 style="font-size: 1.5rem; font-weight: 800; margin: 0; color: var(--accent);">${formatCurrency(estatisticas.valor_total_faturado || 0)}</h3>
-                <p style="font-size: 0.85rem; color: var(--gray); margin: 0;">Facturado</p>
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon admin-stat-icon--teal">💰</div>
+                <div>
+                    <h3 class="admin-stat-value" style="font-size: 1.45rem;">${formatCurrency(estatisticas.valor_total_faturado || 0)}</h3>
+                    <p class="admin-stat-label">Facturado</p>
+                </div>
             </div>
-            <div class="card text-center" style="padding: 1.25rem;">
-                <div style="font-size: 2rem; color: #f59e0b; margin-bottom: 0.25rem;">📬</div>
-                <h3 style="font-size: 1.75rem; font-weight: 800; margin: 0; color: #f59e0b;">${mensagens.length}</h3>
-                <p style="font-size: 0.85rem; color: var(--gray); margin: 0;">${mensagensNaoLidas > 0 ? `<span style="color: #ef4444; font-weight: 700;">${mensagensNaoLidas} não lida(s)</span>` : 'Mensagens'}</p>
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon admin-stat-icon--gold">📬</div>
+                <div>
+                    <h3 class="admin-stat-value">${mensagens.length}</h3>
+                    <p class="admin-stat-label">${mensagensNaoLidas > 0 ? `<span style="color: #ef4444; font-weight: 700;">${mensagensNaoLidas} não lida(s)</span>` : 'Mensagens'}</p>
+                </div>
             </div>
         </div>
 
@@ -213,67 +227,79 @@ export default async function adminPage() {
         <!-- TAB: Funcionários -->
         <div class="tab-content-admin" id="tab-funcionarios" style="display: none;">
             <!-- Cadastrar Funcionário -->
-            <div class="section-card" style="background: #f8fafc; border: 2px dashed var(--primary);">
-                <div class="section-card-header">
-                    <h2 class="section-card-title">➕ Cadastrar Novo Funcionário</h2>
-                </div>
-                <form id="formCreateFuncionario">
-                    <div class="grid grid-3" style="gap: 1rem;">
-                        <div class="form-group">
-                            <label class="form-label">Nome Completo</label>
-                            <input type="text" class="form-input" id="newFuncNome" placeholder="Nome completo" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-input" id="newFuncEmail" placeholder="email@exemplo.com" required maxlength="54">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Senha</label>
-                            <input type="password" class="form-input" id="newFuncSenha" placeholder="Mínimo 4 caracteres" required minlength="4" maxlength="12">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Telefone</label>
-                            <input type="tel" class="form-input" id="newFuncTelefone" placeholder="84 123 4567" maxlength="9" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 9)">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Salário (MZN)</label>
-                            <input type="number" class="form-input" id="newFuncSalario" placeholder="0" step="0.01">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Endereço</label>
-                            <input type="text" class="form-input" id="newFuncEndereco" placeholder="Endereço completo">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Foto</label>
-                            <input type="file" class="form-input" id="newFuncFoto" accept="image/*" style="padding: 0.5rem;">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Banco</label>
-                            <select class="form-select" id="newFuncBanco">
-                                <option value="">Selecionar banco...</option>
-                                <option value="BIM">BIM</option>
-                                <option value="BCI">BCI</option>
-                                <option value="Standard Bank">Standard Bank</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Nº Conta Bancária</label>
-                            <input type="text" class="form-input" id="newFuncConta" placeholder="Número de conta">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Carteira Móvel</label>
-                            <select class="form-select" id="newFuncTipoConta">
-                                <option value="">Selecionar...</option>
-                                <option value="mpesa">M-Pesa</option>
-                                <option value="emola">E-Mola</option>
-                                <option value="emick">E-Micks</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="display: flex; align-items: flex-end;">
-                            <button type="submit" class="btn btn-primary" style="width: 100%;">Cadastrar Funcionário</button>
-                        </div>
+            <div class="section-card func-cadastro-card">
+                <div class="func-cadastro-topbar"></div>
+                <div class="func-cadastro-header">
+                    <div class="func-cadastro-header-icon">👷</div>
+                    <div>
+                        <h2 class="section-card-title">Cadastrar Novo Funcionário</h2>
+                        <p class="func-cadastro-sub">Preencha os dados abaixo para criar a conta de acesso do funcionário</p>
                     </div>
-                </form>
+                </div>
+                <div class="func-cadastro-body">
+                    <form id="formCreateFuncionario">
+                        <div class="func-cadastro-grid">
+                            <div class="func-field">
+                                <label class="form-label">📷 Foto</label>
+                                <div class="func-photo-upload">
+                                    <div class="func-photo-preview" id="funcFotoPreview">👷</div>
+                                    <div>
+                                        <label class="func-photo-btn" for="newFuncFoto">📷 Escolher foto</label>
+                                        <p class="func-photo-hint">JPG, PNG ou GIF</p>
+                                    </div>
+                                    <input type="file" class="form-input func-photo-input" id="newFuncFoto" accept="image/*">
+                                </div>
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">👤 Nome Completo</label>
+                                <input type="text" class="form-input" id="newFuncNome" placeholder="Nome completo" required>
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">📧 Email</label>
+                                <input type="email" class="form-input" id="newFuncEmail" placeholder="email@exemplo.com" required maxlength="54">
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">🔒 Senha</label>
+                                <input type="password" class="form-input" id="newFuncSenha" placeholder="Mínimo 4 caracteres" required minlength="4" maxlength="12">
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">📱 Telefone</label>
+                                <input type="tel" class="form-input" id="newFuncTelefone" placeholder="84 123 4567" maxlength="9" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 9)">
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">💰 Salário (MZN)</label>
+                                <input type="number" class="form-input" id="newFuncSalario" placeholder="0" step="0.01">
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">📍 Endereço</label>
+                                <input type="text" class="form-input" id="newFuncEndereco" placeholder="Endereço completo">
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">🏦 Banco</label>
+                                <select class="form-select" id="newFuncBanco">
+                                    <option value="">Selecionar banco...</option>
+                                    <option value="BIM">BIM</option>
+                                    <option value="BCI">BCI</option>
+                                    <option value="Standard Bank">Standard Bank</option>
+                                </select>
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">🔢 Nº Conta Bancária</label>
+                                <input type="text" class="form-input" id="newFuncConta" placeholder="Número de conta">
+                            </div>
+                            <div class="func-field">
+                                <label class="form-label">📲 Carteira Móvel</label>
+                                <select class="form-select" id="newFuncTipoConta">
+                                    <option value="">Selecionar...</option>
+                                    <option value="mpesa">M-Pesa</option>
+                                    <option value="emola">E-Mola</option>
+                                    <option value="emick">E-Micks</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="func-submit-btn">➕ Cadastrar Funcionário</button>
+                    </form>
+                </div>
             </div>
 
             <div class="section-card">
@@ -1283,6 +1309,26 @@ export default async function adminPage() {
             } catch (error) {
                 showError(error.message);
             }
+        });
+    }
+
+    // ==================== PREVIEW DE FOTO (CADASTRO FUNCIONÁRIO) ====================
+    const funcFotoInput = document.getElementById('newFuncFoto');
+    const funcFotoPreview = document.getElementById('funcFotoPreview');
+    if (funcFotoInput && funcFotoPreview) {
+        funcFotoInput.addEventListener('change', () => {
+            const file = funcFotoInput.files && funcFotoInput.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                showError('Por favor, selecione um ficheiro de imagem válido.');
+                funcFotoInput.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                funcFotoPreview.innerHTML = `<img src="${e.target.result}" alt="Pré-visualização da foto">`;
+            };
+            reader.readAsDataURL(file);
         });
     }
 
