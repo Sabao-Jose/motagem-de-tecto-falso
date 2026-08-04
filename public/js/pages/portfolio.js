@@ -297,6 +297,13 @@ export default async function portfolioPage() {
           <button id="btnOrcEmail" class="pf-choix-btn" style="width: 100%; background: #EA4335; color: white; display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.95rem; margin-bottom: 0.75rem; font-weight: 700; font-size: 1.05rem; box-shadow: 0 6px 16px rgba(234, 67, 53, 0.35);">
             ✉️ Email
           </button>
+
+          <div style="border-top: 1px solid var(--light, #e2e8f0); margin: 0.75rem 0; padding-top: 0.75rem; text-align: center;">
+            <p style="color: var(--gray, #94a3b8); font-size: 0.82rem; margin-bottom: 0.75rem;">Ou envie directamente pelo sistema:</p>
+            <button id="btnOrcEnviarAdmin" class="pf-choix-btn" style="width: 100%; background: linear-gradient(135deg, #6366f1, #818cf8); color: white; display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.95rem; font-weight: 700; font-size: 1.05rem; box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);">
+              📨 Enviar Pedido ao Admin
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -647,6 +654,38 @@ export default async function portfolioPage() {
     window.location.href = url;
     orcamentoModal.style.display = 'none';
     showSuccess('Redirecionando para Email...');
+  });
+
+  // Enviar pedido ao admin via sistema interno (botão no modal do cliente)
+  document.getElementById('btnOrcEnviarAdmin').addEventListener('click', async () => {
+    const token = localStorage.getItem('teto_falso_token');
+    if (!token) {
+      orcamentoModal.style.display = 'none';
+      if (confirm('Precisa de fazer login para enviar um pedido ao admin.\nDeseja ir para a página de login?')) {
+        window.location.hash = 'login';
+      }
+      return;
+    }
+    const btn = document.getElementById('btnOrcEnviarAdmin');
+    btn.disabled = true;
+    btn.textContent = 'A enviar...';
+    try {
+      await api.post('/pedidos-portfolio', {
+        portfolio_id: parseInt(shareItemId),
+        portfolio_titulo: shareItemTitulo,
+        portfolio_imagem: shareItemImagem,
+        portfolio_video: shareItemVideo,
+        portfolio_tipo: shareItemTipo,
+        mensagem: `Gostei deste projeto! Gostaria de um orçamento para algo semelhante.`
+      });
+      orcamentoModal.style.display = 'none';
+      showSuccess('✅ Pedido enviado ao admin! Será contactado em breve.');
+    } catch (err) {
+      showError('Erro ao enviar pedido: ' + (err.message || 'Tente novamente.'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📨 Enviar Pedido ao Admin';
+    }
   });
 
   orcamentoModalClose.addEventListener('click', () => {

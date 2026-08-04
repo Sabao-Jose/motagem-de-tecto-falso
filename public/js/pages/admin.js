@@ -758,9 +758,10 @@ export default async function adminPage() {
                 ${pedidosPortfolio.length > 0 ? pedidosPortfolio.map(p => `
                     <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${p.status === 'pendente' ? '#ef4444' : p.status === 'visto' ? '#f59e0b' : '#10b981'};">
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                            <!-- Preview -->
-                            <div style="width: 110px; height: 80px; border-radius: var(--radius-lg); overflow: hidden; flex-shrink: 0; background: var(--light); display: flex; align-items: center; justify-content: center;">
-                                ${p.portfolio_imagem ? `<img src="${p.portfolio_imagem}" alt="preview" style="width: 100%; height: 100%; object-fit: cover;">` : p.portfolio_video ? `<video src="${p.portfolio_video}" style="width: 100%; height: 100%; object-fit: cover;"></video>` : '<span style="font-size: 2rem;">🏗️</span>'}
+                            <!-- Preview clicável -->
+                            <div class="pedido-preview" data-pedido-id="${p.id}" data-pedido-titulo="${(p.portfolio_titulo || '').replace(/"/g, '&quot;')}" data-pedido-imagem="${(p.portfolio_imagem || '').replace(/"/g, '&quot;')}" data-pedido-video="${(p.portfolio_video || '').replace(/"/g, '&quot;')}" style="width: 110px; height: 80px; border-radius: var(--radius-lg); overflow: hidden; flex-shrink: 0; background: var(--light); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; position: relative;" title="Clique para ver em tamanho real">
+                                ${p.portfolio_imagem ? `<img src="${p.portfolio_imagem}" alt="preview" style="width: 100%; height: 100%; object-fit: cover;">` : p.portfolio_video ? `<video src="${p.portfolio_video}" style="width: 100%; height: 100%; object-fit: cover;" muted></video>` : '<span style="font-size: 2rem;">🏗️</span>'}
+                                <span style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; font-size: 0.6rem; padding: 1px 4px; border-radius: 4px;">🔍</span>
                             </div>
                             <!-- Info -->
                             <div style="flex: 1; min-width: 200px;">
@@ -777,6 +778,10 @@ export default async function adminPage() {
                             </div>
                         </div>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--light);">
+                            ${(p.portfolio_imagem || p.portfolio_video) ? `
+                            <button class="btn-ver-projeto-pedido" data-titulo="${(p.portfolio_titulo || '').replace(/"/g, '&quot;')}" data-imagem="${(p.portfolio_imagem || '').replace(/"/g, '&quot;')}" data-video="${(p.portfolio_video || '').replace(/"/g, '&quot;')}" style="background: #8b5cf6; color: white; padding: 0.4rem 0.85rem; border-radius: var(--radius-md); font-size: 0.82rem; border: none; cursor: pointer;">
+                                🔍 Ver Projeto
+                            </button>` : ''}
                             ${p.status === 'pendente' ? `
                             <button class="btn-pedido-visto" data-id="${p.id}" style="background: #f59e0b; color: white; padding: 0.4rem 0.85rem; border-radius: var(--radius-md); font-size: 0.82rem; border: none; cursor: pointer;">
                                 👁️ Marcar como Visto
@@ -3328,6 +3333,13 @@ export default async function adminPage() {
                     await api.uploadFile(`/portfolio/${id}`, formData, 'PUT', (pct) => {
                         prog.set(pct, `A carregar projecto... ${pct}%`);
                     });
+                } else {
+                    // Sem ficheiro novo — gravar apenas os dados textuais
+                    await api.put(`/portfolio/${id}`, {
+                        titulo: document.getElementById('editPortfolioTitulo').value,
+                        descricao: document.getElementById('editPortfolioDescricao').value,
+                        tipo_servico: document.getElementById('editPortfolioTipo').value
+                    });
                 }
                 if (emUpload) prog.done('Projecto actualizado com sucesso!');
                 showSuccess('Projecto actualizado!');
@@ -3607,5 +3619,63 @@ export default async function adminPage() {
                 showError('Erro: ' + (err.message || 'Tente novamente'));
             }
         });
+    });
+
+    // ==================== VER PROJETO DO PEDIDO ====================
+    function abrirProjetoPedido(titulo, imagem, video) {
+        let overlay = document.getElementById('pedidoProjetoOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'pedidoProjetoOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;flex-direction:column;padding:1rem;';
+            document.body.appendChild(overlay);
+        }
+        overlay.innerHTML = `
+            <div style="position:absolute;top:1rem;right:1rem;color:white;font-size:2rem;cursor:pointer;z-index:10000;" id="fecharProjetoPedido">&times;</div>
+            <p style="color:white;font-weight:700;font-size:1.1rem;margin-bottom:0.75rem;text-align:center;max-width:90vw;" id="pedidoProjetoTitulo"></p>
+            <div style="max-width:90vw;max-height:80vh;display:flex;align-items:center;justify-content:center;border-radius:0.75rem;overflow:hidden;background:#000;" id="pedidoProjetoMedia"></div>
+            <p style="color:rgba(255,255,255,0.6);font-size:0.8rem;margin-top:0.75rem;">Clique fora da imagem ou no ✕ para fechar</p>
+        `;
+        document.getElementById('pedidoProjetoTitulo').textContent = titulo || 'Projeto';
+        const media = document.getElementById('pedidoProjetoMedia');
+        media.innerHTML = '';
+        if (video) {
+            const v = document.createElement('video');
+            v.src = video;
+            v.controls = true;
+            v.autoplay = true;
+            v.style.cssText = 'max-width:90vw;max-height:80vh;object-fit:contain;';
+            media.appendChild(v);
+        } else if (imagem) {
+            const img = document.createElement('img');
+            img.src = imagem;
+            img.alt = titulo;
+            img.style.cssText = 'max-width:90vw;max-height:80vh;object-fit:contain;';
+            media.appendChild(img);
+        } else {
+            media.innerHTML = '<span style="font-size:5rem;">🏗️</span>';
+        }
+        overlay.style.display = 'flex';
+        overlay.onclick = (e) => {
+            if (e.target === overlay || e.target.id === 'fecharProjetoPedido') {
+                overlay.style.display = 'none';
+                const vid = overlay.querySelector('video');
+                if (vid) vid.pause();
+            }
+        };
+    }
+
+    document.querySelectorAll('.btn-ver-projeto-pedido').forEach(btn => {
+        btn.addEventListener('click', () => {
+            abrirProjetoPedido(btn.dataset.titulo, btn.dataset.imagem, btn.dataset.video);
+        });
+    });
+
+    document.querySelectorAll('.pedido-preview').forEach(preview => {
+        preview.addEventListener('click', () => {
+            abrirProjetoPedido(preview.dataset.pedidoTitulo, preview.dataset.pedidoImagem, preview.dataset.pedidoVideo);
+        });
+        preview.addEventListener('mouseenter', () => { preview.style.transform = 'scale(1.05)'; });
+        preview.addEventListener('mouseleave', () => { preview.style.transform = 'scale(1)'; });
     });
 }
