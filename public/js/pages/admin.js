@@ -16,6 +16,10 @@ export default async function adminPage() {
     let pagamentos = [];
     let servicos = [];
     let pedidosPortfolio = [];
+    let historicoLogs = [];
+    let historicoAcoes = [];
+    let paginaHistorico = 1;
+    let historicoTotalPaginas = 1;
 
     try {
         const [resU, resP, resC, resE, resM, resF, resCL, resPG, resS, resCS, resPF, resPedidos] = await Promise.all([
@@ -96,29 +100,29 @@ export default async function adminPage() {
         <div class="admin-stat-grid">
             <div class="admin-stat-card">
                 <div class="admin-stat-icon admin-stat-icon--purple">👥</div>
-                <div>
-                    <h3 class="admin-stat-value">${usuarios.length}</h3>
+                <div style="flex: 1; min-width: 0;">
+                    <h3 class="admin-stat-value" title="${usuarios.length}">${usuarios.length}</h3>
                     <p class="admin-stat-label">Utilizadores</p>
                 </div>
             </div>
             <div class="admin-stat-card">
                 <div class="admin-stat-icon admin-stat-icon--blue">📋</div>
-                <div>
-                    <h3 class="admin-stat-value">${estatisticas.total_servicos || 0}</h3>
+                <div style="flex: 1; min-width: 0;">
+                    <h3 class="admin-stat-value" title="${estatisticas.total_servicos || 0}">${estatisticas.total_servicos || 0}</h3>
                     <p class="admin-stat-label">Serviços</p>
                 </div>
             </div>
             <div class="admin-stat-card">
                 <div class="admin-stat-icon admin-stat-icon--teal">💰</div>
-                <div>
-                    <h3 class="admin-stat-value" style="font-size: 1.45rem;">${formatCurrency(estatisticas.valor_total_faturado || 0)}</h3>
+                <div style="flex: 1; min-width: 0;">
+                    <h3 class="admin-stat-value" style="font-size: clamp(1.1rem, 2vw, 1.45rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${formatCurrency(estatisticas.valor_total_faturado || 0)}">${formatCurrency(estatisticas.valor_total_faturado || 0)}</h3>
                     <p class="admin-stat-label">Facturado</p>
                 </div>
             </div>
             <div class="admin-stat-card">
                 <div class="admin-stat-icon admin-stat-icon--gold">📬</div>
-                <div>
-                    <h3 class="admin-stat-value">${mensagens.length}</h3>
+                <div style="flex: 1; min-width: 0;">
+                    <h3 class="admin-stat-value" title="${mensagens.length}">${mensagens.length}</h3>
                     <p class="admin-stat-label">${mensagensNaoLidas > 0 ? `<span style="color: #ef4444; font-weight: 700;">${mensagensNaoLidas} não lida(s)</span>` : 'Mensagens'}</p>
                 </div>
             </div>
@@ -138,6 +142,7 @@ export default async function adminPage() {
             </button>
             <button class="tab" data-admin-tab="config">⚙️ Configurações</button>
             <button class="tab" data-admin-tab="ai">🤖 Agente IA</button>
+            <button class="tab" data-admin-tab="historico">📜 Histórico</button>
         </div>
 
         <!-- TAB: Users -->
@@ -147,7 +152,7 @@ export default async function adminPage() {
                     <h2 class="section-card-title">➕ Novo Utilizador</h2>
                 </div>
                 <form id="formCreateUser">
-                    <div class="grid grid-3" style="gap: 1rem;">
+                    <div class="grid" style="grid-template-columns: 1fr; gap: 1rem;">
                         <div class="form-group">
                             <label class="form-label">Nome</label>
                             <input type="text" class="form-input" id="newUserNome" placeholder="Nome completo" required>
@@ -240,7 +245,7 @@ export default async function adminPage() {
                 </div>
                 <div class="func-cadastro-body">
                     <form id="formCreateFuncionario">
-                        <div class="func-cadastro-grid">
+                        <div class="func-cadastro-grid" style="grid-template-columns: 1fr;">
                             <div class="func-field">
                                 <label class="form-label">📷 Foto</label>
                                 <div class="func-photo-upload">
@@ -899,9 +904,63 @@ export default async function adminPage() {
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Pesquisa Geral Modal -->
+        <!-- Aba: Histórico do Sistema -->
+        <div class="tab-content-admin" id="tab-historico" style="display: none;">
+            <div class="card" style="max-width: 1200px; margin: 0 auto;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <span style="font-size: 2rem;">📜</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.25rem;">Histórico do Sistema</h2>
+                        <p style="margin: 0; color: var(--gray); font-size: 0.85rem;">Registo de auditoria de todas as acções no sistema</p>
+                    </div>
+                    <span id="historicoCount" style="margin-left: auto; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; background: var(--light); color: var(--gray);">0 registos</span>
+                </div>
+
+                <!-- Filtros -->
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="filtroBusca" class="form-input" placeholder="🔍 Buscar (ação, detalhes, utilizador, IP)..." style="flex: 1; min-width: 200px; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
+                    <select id="filtroAcao" class="form-input" style="max-width: 220px; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
+                        <option value="">Todas as ações</option>
+                    </select>
+                    <input type="date" id="filtroDataInicio" class="form-input" style="max-width: 160px; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
+                    <input type="date" id="filtroDataFim" class="form-input" style="max-width: 160px; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
+                    <button class="btn btn-sm" style="background: var(--primary); color: white;" onclick="carregarHistorico(1)">🔍 Filtrar</button>
+                    <button class="btn btn-sm btn-outline" onclick="limparFiltrosHistorico()">✖ Limpar</button>
+                    <button class="btn btn-sm" style="background: #ef4444; color: white;" onclick="exportarHistoricoPDF()">📄 PDF</button>
+                    <button class="btn btn-sm" style="background: #10b981; color: white;" onclick="exportarHistoricoExcel()">📊 Excel</button>
+                </div>
+
+                <!-- Tabela -->
+                <div class="table-wrap">
+                    <table class="table" id="tabelaHistorico">
+                        <thead>
+                            <tr>
+                                <th style="width: 160px;">Data/Hora</th>
+                                <th>Utilizador</th>
+                                <th>Ação</th>
+                                <th>Detalhes</th>
+                                <th>IP</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyHistorico">
+                            <tr><td colspan="5" style="text-align: center; color: var(--gray); padding: 1.5rem;">Carregando histórico...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginação -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <span style="font-size: 0.8rem; color: var(--gray);" id="historicoInfoPagina">Página 1</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-sm btn-outline" id="btnHistoricoPrev" onclick="paginaAnterior()">← Anterior</button>
+                        <button class="btn btn-sm btn-outline" id="btnHistoricoNext" onclick="paginaSeguinte()">Próxima →</button>
+                    </div>
+                    <button class="btn btn-sm" style="background: #ef4444; color: white; font-size: 0.8rem;" onclick="apagarHistorico()">🗑️ Apagar histórico</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="pesquisaGeralModal" class="modal-overlay" style="display: none;">
       <div class="modal-content" style="max-width: 480px;">
         <span onclick="fecharPesquisaGeral()" class="modal-close">&times;</span>
@@ -1191,19 +1250,113 @@ export default async function adminPage() {
 
     <!-- Relatorios Modal Admin -->
     <div id="relatoriosModalAdmin" class="modal-overlay" style="display: none;">
-      <div class="modal-content" style="max-width: 800px; position: relative;">
+      <div class="modal-content" style="max-width: 920px; position: relative; padding: 1.5rem;">
         <span onclick="fecharSistemaRelatoriosAdmin()" class="modal-close" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 10; background: var(--light); font-size: 1.5rem; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; transition: all 0.2s;">&times;</span>
-        <h2 class="section-card-title" style="color: var(--primary); text-align: center;">📈 Sistema de Relatórios (Admin)</h2>
-        
-        <div class="table-toolbar" style="margin: 1rem 0; justify-content: center;" id="botoesPeriodoAdmin">
-            <button class="btn btn-sm btn-primary" onclick="filtrarRelatoriosAdmin('mensal')">📅 Mensal (Este Mês)</button>
-            <button class="btn btn-sm btn-outline" onclick="filtrarRelatoriosAdmin('6meses')">📅 6 Meses</button>
-            <button class="btn btn-sm btn-outline" onclick="filtrarRelatoriosAdmin('1ano')">📅 1 Ano</button>
-            <button class="btn btn-sm btn-outline" onclick="filtrarRelatoriosAdmin('geral')">🌍 Geral</button>
+        <h2 class="section-card-title" style="color: var(--primary); text-align: center; margin-bottom: 1.25rem;">📈 Sistema de Relatórios (Admin)</h2>
+
+        <!-- Filtros linha 1 -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; align-items: end;">
+          <div>
+            <label style="font-size: 0.75rem; color: #6b7280; display: block; margin-bottom: 0.25rem;">Tipo de Filtro</label>
+            <select id="adminRelTipoFiltro" class="form-input" style="padding: 0.5rem 0.75rem; font-size: 0.875rem;">
+              <option value="mensal">Mensal</option>
+              <option value="anual" selected>Anual</option>
+              <option value="6meses">6 Meses</option>
+              <option value="geral">Geral</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: #6b7280; display: block; margin-bottom: 0.25rem;">Mês/Ano Inicial</label>
+            <input type="month" id="adminRelDataInicio" class="form-input" style="padding: 0.5rem 0.75rem; font-size: 0.875rem;">
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: #6b7280; display: block; margin-bottom: 0.25rem;">Mês/Ano Final</label>
+            <input type="month" id="adminRelDataFim" class="form-input" style="padding: 0.5rem 0.75rem; font-size: 0.875rem;">
+          </div>
         </div>
 
-        <div class="section-card" style="margin-bottom: 1.5rem;">
-            <canvas id="relatorioGraficoAdmin" style="width: 100%; max-height: 350px;"></canvas>
+        <!-- Filtros linha 2 -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 0.75rem; margin-bottom: 1.25rem; align-items: end;">
+          <div>
+            <label style="font-size: 0.75rem; color: #6b7280; display: block; margin-bottom: 0.25rem;">Forma de Pagamento</label>
+            <select id="adminRelFormaPagamento" class="form-input" style="padding: 0.5rem 0.75rem; font-size: 0.875rem;">
+              <option value="">Todos</option>
+              <option value="pago">Pago</option>
+              <option value="pendente">Pendente</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: #6b7280; display: block; margin-bottom: 0.25rem;">Categoria/Produto</label>
+            <select id="adminRelCategoria" class="form-input" style="padding: 0.5rem 0.75rem; font-size: 0.875rem;">
+              <option value="">Todos</option>
+              <option value="gesso">Gesso</option>
+              <option value="pvc">PVC</option>
+              <option value="modular">Modular</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: #6b7280; display: block; margin-bottom: 0.25rem;">Centro de Custo</label>
+            <select id="adminRelCentro" class="form-input" style="padding: 0.5rem 0.75rem; font-size: 0.875rem;">
+              <option value="">Todos</option>
+              <option value="materiais">Materiais</option>
+              <option value="mao_obra">Mão de Obra</option>
+            </select>
+          </div>
+          <div>
+            <button class="btn btn-primary" onclick="pesquisarRelatorioAdmin()" style="padding: 0.5rem 1.25rem; font-size: 0.875rem; white-space: nowrap;">🔍 Pesquisar</button>
+          </div>
+        </div>
+
+        <!-- Gráfico com cabeçalho e legenda -->
+        <div class="section-card" style="margin-bottom: 1.25rem; padding: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #111827; margin: 0;">Receitas e Despesas</h3>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button id="btnToggleReceitasPrevistas" onclick="toggleSerieAdmin(0)" style="display: flex; align-items: center; gap: 0.35rem; background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.75rem; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+                <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid white; border-radius: 3px; background: white; flex-shrink: 0;"><span style="display: block; width: 8px; height: 8px; margin: 1px; background: #3b82f6; border-radius: 1px;"></span></span>
+                Receitas Previstas
+              </button>
+              <button id="btnToggleReceitasRecebidas" onclick="toggleSerieAdmin(1)" style="display: flex; align-items: center; gap: 0.35rem; background: #10b981; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.75rem; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+                <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid white; border-radius: 3px; background: white; flex-shrink: 0;"><span style="display: block; width: 8px; height: 8px; margin: 1px; background: #10b981; border-radius: 1px;"></span></span>
+                Receitas Recebidas
+              </button>
+              <button id="btnToggleDespesas" onclick="toggleSerieAdmin(2)" style="display: flex; align-items: center; gap: 0.35rem; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.75rem; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+                <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid white; border-radius: 3px; background: white; flex-shrink: 0;">                <span style="display: block; width: 8px; height: 8px; margin: 1px; background: #ef4444; border-radius: 1px;"></span></span>
+                Despesas da Empresa
+              </button>
+            </div>
+          </div>
+          <div style="position: relative; height: 320px;">
+            <canvas id="relatorioGraficoAdmin"></canvas>
+          </div>
+          <div id="adminRelEixoLabel" style="text-align: center; margin-top: 0.5rem; font-size: 0.78rem; color: #6b7280;">Mês</div>
+        </div>
+
+        <!-- Resumo Financeiro -->
+        <div class="section-card" style="margin-bottom: 1.25rem; padding: 1rem;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: #111827; margin: 0 0 0.75rem;">📊 Resumo Financeiro do Período</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 0.75rem;">
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 0.85rem 0.6rem; text-align: center;">
+              <div style="font-size: 0.7rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">💰 Total Recebido</div>
+              <div id="adminRelTotalRecebido" style="font-size: 1rem; font-weight: 800; color: #2563eb; margin-top: 0.3rem;">—</div>
+            </div>
+            <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 0.85rem 0.6rem; text-align: center;">
+              <div style="font-size: 0.7rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">⏳ Total Pendente</div>
+              <div id="adminRelTotalPendente" style="font-size: 1rem; font-weight: 800; color: #d97706; margin-top: 0.3rem;">—</div>
+            </div>
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 0.85rem 0.6rem; text-align: center;">
+              <div style="font-size: 0.7rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">🧾 Despesas da Empresa</div>
+              <div id="adminRelTotalDespesas" style="font-size: 1rem; font-weight: 800; color: #dc2626; margin-top: 0.3rem;">—</div>
+            </div>
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 0.85rem 0.6rem; text-align: center;">
+              <div style="font-size: 0.7rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">🏢 Total Gerado</div>
+              <div id="adminRelTotalGerado" style="font-size: 1rem; font-weight: 800; color: #16a34a; margin-top: 0.3rem;">—</div>
+            </div>
+            <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 0.85rem 0.6rem; text-align: center;">
+              <div style="font-size: 0.7rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">📈 Lucro da Empresa</div>
+              <div id="adminRelLucro" style="font-size: 1rem; font-weight: 800; color: #7c3aed; margin-top: 0.3rem;">—</div>
+            </div>
+          </div>
         </div>
 
         <div class="table-actions">
@@ -1258,6 +1411,206 @@ export default async function adminPage() {
       </div>
     </div>
     `);
+
+    // ==================== HISTÓRICO DO SISTEMA ====================
+    const LABELS_ACAO = {
+        login_sucesso: '🔓 Login',
+        login_falha: '🚫 Login falhado',
+        login_conta_desativada: '⛔ Conta desativada',
+        registro_cliente: '📝 Registo cliente',
+        utilizador_criado: '👤 Utilizador criado',
+        utilizador_atualizado: '✏️ Utilizador atualizado',
+        utilizador_apagado: '🗑️ Utilizador apagado',
+        role_atualizada: '🎭 Role atualizada',
+        permissao_responder_atualizada: '🔔 Permissão atualizada',
+        dados_funcionario_atualizados: '👷 Dados funcionário',
+        foto_funcionario_atualizada: '📸 Foto atualizada',
+        cliente_criado: '✅ Cliente criado',
+        cliente_atualizado: '✏️ Cliente atualizado',
+        cliente_apagado: '🗑️ Cliente apagado',
+        cliente_verificado: '🔍 Cliente verificado',
+        servico_criado: '📋 Serviço criado',
+        servico_atualizado: '✏️ Serviço atualizado',
+        materiais_atualizados: '🧱 Materiais atualizados',
+        pagamento_registado: '💳 Pagamento registado',
+        portfolio_criado: '📸 Projeto criado',
+        portfolio_atualizado: '✏️ Projeto atualizado',
+        portfolio_apagado: '🗑️ Projeto apagado',
+        mensagem_contacto_recebida: '📬 Mensagem recebida',
+        mensagem_marcada_lida: '👁️ Mensagem lida',
+        mensagem_respondida: '📤 Mensagem respondida',
+        mensagem_apagada: '🗑️ Mensagem apagada',
+        configuracao_atualizada: '⚙️ Config atualizada',
+        preco_atualizado: '💰 Preço atualizado',
+        falta_registada: '❌ Falta registada',
+        falta_justificada: '📄 Falta justificada',
+        falta_apagada: '🗑️ Falta apagada',
+        pedido_portfolio_enviado: '📩 Pedido enviado',
+        pedido_status_atualizado: '🔄 Pedido atualizado',
+        pedido_apagado: '🗑️ Pedido apagado',
+        historico_apagado: '🧹 Histórico limpo',
+        historico_total_apagado: '🧹 Histórico total limpo'
+    };
+
+    const getLabelAcao = (acao) => LABELS_ACAO[acao] || acao;
+
+    // Formata "2026-08-12 06:19:51" (SQLite) -> "12/08/2026 às 06:19" sem depender do browser
+    const formatarDataHora = (str) => {
+        if (!str) return '-';
+        const m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+        if (!m) return String(str);
+        return `${m[3]}/${m[2]}/${m[1]} às ${m[4]}:${m[5]}`;
+    };
+
+    const formatarDetalhes = (log) => {
+        if (!log || !log.detalhes) return '-';
+        try {
+            const d = JSON.parse(log.detalhes);
+            const partes = Object.entries(d).map(([k, v]) => {
+                const val = typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
+                return `<span style="color: var(--gray);">${k}:</span> <strong>${String(val).slice(0, 120)}</strong>`;
+            });
+            return partes.join(' · ') || '-';
+        } catch {
+            return String(log.detalhes).slice(0, 200);
+        }
+    };
+
+    const getFiltrosHistorico = () => {
+        const params = new URLSearchParams();
+        const acao = document.getElementById('filtroAcao')?.value;
+        const busca = document.getElementById('filtroBusca')?.value.trim();
+        const dataInicio = document.getElementById('filtroDataInicio')?.value;
+        const dataFim = document.getElementById('filtroDataFim')?.value;
+        if (acao) params.set('acao', acao);
+        if (busca) params.set('busca', busca);
+        if (dataInicio) params.set('data_inicio', dataInicio);
+        if (dataFim) params.set('data_fim', dataFim);
+        params.set('por_pagina', '25');
+        return params;
+    };
+
+    window.carregarHistorico = async (pagina = 1) => {
+        const tbody = document.getElementById('tbodyHistorico');
+        try {
+            paginaHistorico = Math.max(1, pagina);
+            const params = getFiltrosHistorico();
+            params.set('pagina', String(paginaHistorico));
+            const res = await api.get('/auditoria?' + params.toString());
+            historicoLogs = res.logs || [];
+            historicoTotalPaginas = res.totalPaginas || 1;
+            historicoAcoes = res.acoes || [];
+            document.getElementById('historicoCount').textContent = `${res.total || 0} registos`;
+
+            // Preencher select de ações (preservar seleção)
+            const selAcao = document.getElementById('filtroAcao');
+            const valorAtual = selAcao.value;
+            selAcao.innerHTML = '<option value="">Todas as ações</option>' +
+                historicoAcoes.map(a => `<option value="${a}">${getLabelAcao(a)}</option>`).join('');
+            selAcao.value = valorAtual;
+
+            if (!historicoLogs.length) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--gray); padding: 1.5rem;">Nenhum registo encontrado.</td></tr>';
+            } else {
+                tbody.innerHTML = historicoLogs.map(log => `
+                    <tr>
+                        <td style="white-space: nowrap; font-size: 0.8rem;">${formatarDataHora(log.created_at)}</td>
+                        <td>${log.usuario_nome ? `<strong>${log.usuario_nome}</strong>` : '<span style="color: var(--gray);">— sistema —</span>'}</td>
+                        <td><span class="badge" style="background: var(--light); color: var(--primary); font-size: 0.75rem;">${getLabelAcao(log.acao)}</span></td>
+                        <td style="font-size: 0.8rem;">${formatarDetalhes(log)}</td>
+                        <td style="font-size: 0.8rem; color: var(--gray);">${log.ip || '-'}</td>
+                    </tr>`).join('');
+            }
+
+            document.getElementById('historicoInfoPagina').textContent = `Página ${paginaHistorico} de ${historicoTotalPaginas}`;
+            document.getElementById('btnHistoricoPrev').disabled = paginaHistorico <= 1;
+            document.getElementById('btnHistoricoNext').disabled = paginaHistorico >= historicoTotalPaginas;
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ef4444; padding: 1.5rem;">Erro ao carregar histórico. Verifique se o servidor foi reiniciado com as novas rotas.</td></tr>';
+            showError('Erro ao carregar histórico.');
+        }
+    };
+
+    window.limparFiltrosHistorico = () => {
+        document.getElementById('filtroBusca').value = '';
+        document.getElementById('filtroAcao').value = '';
+        document.getElementById('filtroDataInicio').value = '';
+        document.getElementById('filtroDataFim').value = '';
+        carregarHistorico(1);
+    };
+
+    window.paginaAnterior = () => carregarHistorico(paginaHistorico - 1);
+    window.paginaSeguinte = () => carregarHistorico(paginaHistorico + 1);
+
+    window.apagarHistorico = () => {
+        const ate = document.getElementById('filtroDataFim')?.value || '';
+        if (!confirm('⚠️ Tem a certeza que deseja apagar o histórico de auditoria do sistema?\n\nEsta ação NÃO pode ser revertida!')) return;
+        const body = ate ? { ate } : {};
+        fetch('/api/auditoria', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('teto_falso_token') || '') },
+            body: JSON.stringify(body)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.error) return showError(res.error);
+                showSuccess(res.message);
+                carregarHistorico(1);
+            })
+            .catch(() => showError('Erro ao apagar histórico.'));
+    };
+
+    window.exportarHistoricoPDF = () => {
+        try {
+            if (!historicoLogs.length) return showError('Sem dados para exportar.');
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape');
+            doc.setFontSize(18);
+            doc.setTextColor(99, 102, 241);
+            doc.text('Histórico do Sistema', 14, 15);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Total exportado: ${historicoLogs.length} registos | Data: ${new Date().toLocaleDateString('pt')}`, 14, 22);
+            const headers = [['Data/Hora', 'Utilizador', 'Ação', 'Detalhes', 'IP']];
+            const rows = historicoLogs.map(log => [
+                formatarDataHora(log.created_at),
+                log.usuario_nome || '-',
+                getLabelAcao(log.acao),
+                (log.detalhes || '-').slice(0, 150),
+                log.ip || '-'
+            ]);
+            doc.autoTable({ head: headers, body: rows, startY: 28, theme: 'grid', headStyles: { fillColor: [99, 102, 241] }, styles: { fontSize: 8 } });
+            doc.save('Historico_Sistema.pdf');
+        } catch (e) { console.error(e); showError('Erro ao exportar PDF.'); }
+    };
+
+    window.exportarHistoricoExcel = () => {
+        try {
+            if (!historicoLogs.length) return showError('Sem dados para exportar.');
+            const data = historicoLogs.map(log => ({
+                'Data/Hora': formatarDataHora(log.created_at),
+                'Utilizador': log.usuario_nome || '-',
+                'Ação': getLabelAcao(log.acao),
+                'Detalhes': log.detalhes || '-',
+                'IP': log.ip || '-'
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Histórico');
+            XLSX.writeFile(wb, 'Historico_Sistema.xlsx');
+        } catch (e) { console.error(e); showError('Erro ao exportar Excel.'); }
+    };
+
+    // Carregar histórico sempre que a aba for aberta
+    document.querySelector('[data-admin-tab="historico"]')?.addEventListener('click', () => {
+        setTimeout(() => carregarHistorico(1), 50);
+    });
+
+    // Enter na busca dispara o filtro
+    document.getElementById('filtroBusca')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') carregarHistorico(1);
+    });
 
     // ==================== TAB NAVIGATION ====================
     document.querySelectorAll('#adminTabs .tab').forEach(tab => {
@@ -1880,16 +2233,336 @@ export default async function adminPage() {
     // ==================== REPORTING SYSTEM LOGIC (ADMIN) ====================
     let relatorioChartAdmin = null;
     let dadosFiltradosAdmin = [];
-    let periodoAtualAdmin = 'mensal';
+    let periodoAtualAdmin = 'anual';
+    let datasManuaisAdmin = false; // true quando o admin escolhe datas manualmente
+    const seriesVisiveisAdmin = [true, true, true]; // [previstas, recebidas, despesas]
+
+    // Inicializa datas padrão (ano atual)
+    (function initAdminRelDatas() {
+        const hoje = new Date();
+        const anoAtual = hoje.getFullYear();
+        const inicio = document.getElementById('adminRelDataInicio');
+        const fim = document.getElementById('adminRelDataFim');
+        if (inicio) inicio.value = `${anoAtual}-01`;
+        if (fim) fim.value = `${anoAtual}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+    })();
+
+    // Ao mudar o tipo de filtro, recalcula automaticamente o período
+    document.getElementById('adminRelTipoFiltro')?.addEventListener('change', () => {
+        datasManuaisAdmin = false;
+        pesquisarRelatorioAdmin();
+    });
+
+    // Se o admin escolher datas manualmente, respeita as mesmas
+    document.getElementById('adminRelDataInicio')?.addEventListener('change', () => { datasManuaisAdmin = true; });
+    document.getElementById('adminRelDataFim')?.addEventListener('change', () => { datasManuaisAdmin = true; });
 
     window.abrirSistemaRelatoriosAdmin = () => {
         document.getElementById('relatoriosModalAdmin').style.display = 'block';
-        filtrarRelatoriosAdmin('mensal');
+        pesquisarRelatorioAdmin();
     };
 
     window.fecharSistemaRelatoriosAdmin = () => {
         document.getElementById('relatoriosModalAdmin').style.display = 'none';
     };
+
+    window.pesquisarRelatorioAdmin = () => {
+        const tipoFiltro = document.getElementById('adminRelTipoFiltro')?.value || 'anual';
+        const dataInicioVal = document.getElementById('adminRelDataInicio')?.value;
+        const dataFimVal = document.getElementById('adminRelDataFim')?.value;
+        const formaPagto = document.getElementById('adminRelFormaPagamento')?.value || '';
+        const categoria = document.getElementById('adminRelCategoria')?.value || '';
+        const centro = document.getElementById('adminRelCentro')?.value || '';
+
+        periodoAtualAdmin = tipoFiltro;
+
+        // Calcula o intervalo de datas conforme o tipo de filtro escolhido
+        const hoje = new Date();
+        const anoAtual = hoje.getFullYear();
+        const mesAtual = hoje.getMonth();
+        let dataInicio, dataFim; // dataFim é exclusivo (fim do mês)
+
+        if (datasManuaisAdmin && dataInicioVal && dataFimVal) {
+            // Utilizador escolheu datas manualmente: respeita as mesmas
+            const [ai, am] = dataInicioVal.split('-').map(Number);
+            const [bi, bm] = dataFimVal.split('-').map(Number);
+            dataInicio = new Date(ai, am - 1, 1);
+            dataFim = new Date(bi, bm - 1, 1);
+            dataFim.setMonth(dataFim.getMonth() + 1);
+        } else {
+            datasManuaisAdmin = false;
+
+            if (tipoFiltro === 'mensal') {
+                // Relatório do mês atual
+                dataInicio = new Date(anoAtual, mesAtual, 1);
+                dataFim = new Date(anoAtual, mesAtual + 1, 1);
+            } else if (tipoFiltro === '6meses') {
+                // Últimos 6 meses (incluindo o mês atual)
+                dataInicio = new Date(anoAtual, mesAtual - 5, 1);
+                dataFim = new Date(anoAtual, mesAtual + 1, 1);
+            } else if (tipoFiltro === 'anual' || tipoFiltro === '1ano') {
+                // Todo o ano atual
+                dataInicio = new Date(anoAtual, 0, 1);
+                dataFim = new Date(anoAtual + 1, 0, 1);
+            } else {
+                // Geral: todos os registos
+                dataInicio = new Date(0);
+                dataFim = new Date(anoAtual + 20, 0, 1);
+            }
+
+            // Sincroniza os campos de mês/ano visíveis com o período aplicado
+            const inicioInput = document.getElementById('adminRelDataInicio');
+            const fimInput = document.getElementById('adminRelDataFim');
+            if (tipoFiltro === 'geral') {
+                if (inicioInput) inicioInput.value = '';
+                if (fimInput) fimInput.value = '';
+            } else {
+                if (inicioInput) inicioInput.value = `${dataInicio.getFullYear()}-${String(dataInicio.getMonth() + 1).padStart(2, '0')}`;
+                // dataFim é exclusivo: mostra o último mês visível do período
+                const fimVisivel = new Date(dataFim.getFullYear(), dataFim.getMonth() - 1, 1);
+                if (fimInput) fimInput.value = `${fimVisivel.getFullYear()}-${String(fimVisivel.getMonth() + 1).padStart(2, '0')}`;
+            }
+        }
+
+        let dados = [...servicos];
+
+        // Aplica o intervalo de datas
+        dados = dados.filter(s => {
+            const d = new Date(s.data_servico || s.created_at);
+            return d >= dataInicio && d < dataFim;
+        });
+
+        // Filtro por categoria
+        if (categoria) dados = dados.filter(s => s.tipo_teto === categoria);
+
+        // Filtro por forma de pagamento
+        if (formaPagto === 'pago') dados = dados.filter(s => s.pago == 1 || s.status === 'pago');
+        else if (formaPagto === 'pendente') dados = dados.filter(s => !s.pago || s.status !== 'pago');
+
+        // Filtro por centro de custo (afeta apenas o que é mostrado nas despesas)
+        dadosFiltradosAdmin = dados;
+        dadosFiltradosAdmin._centroFiltro = centro;
+
+        renderizarGraficoAdmin(dados, tipoFiltro, centro);
+    };
+
+    // Mantém compatibilidade com código antigo
+    window.filtrarRelatoriosAdmin = (periodo) => {
+        const sel = document.getElementById('adminRelTipoFiltro');
+        if (sel) sel.value = periodo;
+        pesquisarRelatorioAdmin();
+    };
+
+    window.toggleSerieAdmin = (idx) => {
+        if (!relatorioChartAdmin) return;
+        seriesVisiveisAdmin[idx] = !seriesVisiveisAdmin[idx];
+        const ds = relatorioChartAdmin.data.datasets[idx];
+        ds.hidden = !seriesVisiveisAdmin[idx];
+        relatorioChartAdmin.update();
+
+        const btns = ['btnToggleReceitasPrevistas', 'btnToggleReceitasRecebidas', 'btnToggleDespesas'];
+        const cores = ['#3b82f6', '#10b981', '#ef4444'];
+        const btn = document.getElementById(btns[idx]);
+        if (btn) {
+            btn.style.opacity = seriesVisiveisAdmin[idx] ? '1' : '0.45';
+        }
+    };
+
+    function renderizarGraficoAdmin(dados, periodo, centro) {
+        const ctx = document.getElementById('relatorioGraficoAdmin').getContext('2d');
+        if (relatorioChartAdmin) relatorioChartAdmin.destroy();
+
+        const hoje = new Date();
+        const anoAtual = hoje.getFullYear();
+        const mesAtual = hoje.getMonth();
+
+        // Constrói os períodos ("buckets") que aparecem no gráfico
+        let buckets = []; // { label, inicio, fim } — fim é exclusivo
+
+        if (periodo === 'mensal') {
+            // Mês atual: um ponto (barra) por dia
+            const ref = dados.length > 0 ? new Date(dados[0].data_servico || dados[0].created_at) : hoje;
+            const anoM = ref.getFullYear();
+            const mesM = ref.getMonth();
+            const diasNoMes = new Date(anoM, mesM + 1, 0).getDate();
+            for (let dia = 1; dia <= diasNoMes; dia++) {
+                buckets.push({
+                    label: new Date(anoM, mesM, dia).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short' }),
+                    inicio: new Date(anoM, mesM, dia),
+                    fim: new Date(anoM, mesM, dia + 1)
+                });
+            }
+        } else if (periodo === '6meses') {
+            // Últimos 6 meses incluindo o mês atual (um ponto por mês)
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(anoAtual, mesAtual - i, 1);
+                buckets.push({
+                    label: d.toLocaleDateString('pt-MZ', { month: 'short' }) + '/' + d.getFullYear(),
+                    inicio: new Date(d.getFullYear(), d.getMonth(), 1),
+                    fim: new Date(d.getFullYear(), d.getMonth() + 1, 1)
+                });
+            }
+        } else if (periodo === 'anual' || periodo === '1ano') {
+            // Todos os 12 meses do ano atual (um ponto por mês)
+            for (let mes = 0; mes < 12; mes++) {
+                buckets.push({
+                    label: new Date(anoAtual, mes, 1).toLocaleDateString('pt-MZ', { month: 'short' }),
+                    inicio: new Date(anoAtual, mes, 1),
+                    fim: new Date(anoAtual, mes + 1, 1)
+                });
+            }
+        } else {
+            // geral: agrupa por mês/ano com base nos dados existentes
+            const mapaKeys = {};
+            dados.forEach(s => {
+                const d = new Date(s.data_servico || s.created_at);
+                const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+                if (!mapaKeys[key]) {
+                    mapaKeys[key] = {
+                        label: d.toLocaleDateString('pt-MZ', { month: 'short' }) + '/' + d.getFullYear(),
+                        inicio: new Date(d.getFullYear(), d.getMonth(), 1),
+                        fim: new Date(d.getFullYear(), d.getMonth() + 1, 1)
+                    };
+                }
+            });
+            buckets = Object.keys(mapaKeys)
+                .sort((a, b) => {
+                    const [ya, ma] = a.split('-').map(Number);
+                    const [yb, mb] = b.split('-').map(Number);
+                    return (ya - yb) || (ma - mb);
+                })
+                .map(k => mapaKeys[k]);
+        }
+
+        // Agrega os valores por período
+        const mapaP = {}, mapaR = {}, mapaD = {};
+        buckets.forEach(b => { mapaP[b.label] = 0; mapaR[b.label] = 0; mapaD[b.label] = 0; });
+
+        dados.forEach(s => {
+            const d = new Date(s.data_servico || s.created_at);
+            const bucket = buckets.find(b => d >= b.inicio && d < b.fim);
+            if (!bucket) return;
+            const chave = bucket.label;
+
+            // Receitas Previstas = valor total gerado
+            mapaP[chave] += (s.valor_total || 0);
+
+            // Receitas Recebidas = apenas pagos
+            if (s.pago == 1 || s.status === 'pago') mapaR[chave] += (s.valor_total || 0);
+
+            // Despesas da Empresa = materiais ou mão de obra (conforme centro de custo)
+            if (!centro || centro === 'materiais') mapaD[chave] += (s.valor_materiais || 0);
+            if (!centro || centro === 'mao_obra') mapaD[chave] += (s.valor_mao_obra || 0);
+        });
+
+        const labels = buckets.map(b => b.label);
+
+        // Atualiza a legenda do eixo X conforme o tipo de filtro
+        const eixoLabel = document.getElementById('adminRelEixoLabel');
+        if (eixoLabel) eixoLabel.textContent = periodo === 'mensal' ? 'Dia do Mês' : 'Mês';
+
+        relatorioChartAdmin = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Receitas Previstas',
+                        data: labels.map(l => mapaP[l] || 0),
+                        backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 0,
+                        borderRadius: 3,
+                        hidden: !seriesVisiveisAdmin[0]
+                    },
+                    {
+                        label: 'Receitas Recebidas',
+                        data: labels.map(l => mapaR[l] || 0),
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        borderColor: '#10b981',
+                        borderWidth: 0,
+                        borderRadius: 3,
+                        hidden: !seriesVisiveisAdmin[1]
+                    },
+                    {
+                        label: 'Despesas da Empresa',
+                        data: labels.map(l => mapaD[l] || 0),
+                        backgroundColor: 'rgba(239, 68, 68, 0.85)',
+                        borderColor: '#ef4444',
+                        borderWidth: 0,
+                        borderRadius: 3,
+                        hidden: !seriesVisiveisAdmin[2]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y || 0)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        ticks: { font: { size: 11 }, color: '#6b7280' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        ticks: {
+                            font: { size: 11 },
+                            color: '#6b7280',
+                            callback: v => `MT ${v.toLocaleString('pt-MZ', { maximumFractionDigits: 0 })}`
+                        }
+                    }
+                }
+            }
+        });
+
+        // Resumo financeiro do período filtrado
+        atualizarResumoFinanceiro(dados, centro);
+    }
+
+    function atualizarResumoFinanceiro(dados, centro) {
+        let totalRecebido = 0;
+        let totalPendente = 0;
+        let totalDespesas = 0;
+        let totalGerado = 0;
+
+        dados.forEach(s => {
+            const valor = s.valor_total || 0;
+            totalGerado += valor;
+
+            if (s.pago == 1 || s.status === 'pago') totalRecebido += valor;
+            else totalPendente += valor;
+
+            if (!centro || centro === 'materiais') totalDespesas += (s.valor_materiais || 0);
+            if (!centro || centro === 'mao_obra') totalDespesas += (s.valor_mao_obra || 0);
+        });
+
+        const lucro = totalGerado - totalDespesas;
+
+        const definir = (id, valor) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = formatCurrency(valor);
+        };
+
+        definir('adminRelTotalRecebido', totalRecebido);
+        definir('adminRelTotalPendente', totalPendente);
+        definir('adminRelTotalDespesas', totalDespesas);
+        definir('adminRelTotalGerado', totalGerado);
+
+        const lucroEl = document.getElementById('adminRelLucro');
+        if (lucroEl) {
+            lucroEl.textContent = formatCurrency(lucro);
+            lucroEl.style.color = lucro >= 0 ? '#16a34a' : '#dc2626';
+        }
+    }
 
     window.atualizarRelatorioAdmin = async () => {
         try {
@@ -1907,97 +2580,12 @@ export default async function adminPage() {
                 if (filhos[2]) filhos[2].querySelector('h3').textContent = new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(estatisticas.valor_total_faturado || 0);
             }
 
-            if (periodoAtualAdmin) {
-                filtrarRelatoriosAdmin(periodoAtualAdmin);
-            }
+            pesquisarRelatorioAdmin();
             showSuccess('Relatorio actualizado!');
         } catch (error) {
             showError('Erro ao actualizar relatorio');
         }
     };
-
-    window.filtrarRelatoriosAdmin = (periodo) => {
-        periodoAtualAdmin = periodo;
-
-        const container = document.getElementById('botoesPeriodoAdmin');
-        if (container) {
-            Array.from(container.children).forEach(btn => {
-                if (btn.textContent.toLowerCase().includes(periodo.replace('1ano', 'ano').replace('6meses', 'meses'))) {
-                    btn.className = 'btn btn-sm btn-primary';
-                } else {
-                    btn.className = 'btn btn-sm btn-outline';
-                }
-            });
-            if (periodo === 'geral') {
-                container.children[3].className = 'btn btn-sm btn-primary';
-                container.children[0].className = 'btn btn-sm btn-outline';
-            } else if (periodo === 'mensal') {
-                container.children[0].className = 'btn btn-sm btn-primary';
-                container.children[3].className = 'btn btn-sm btn-outline';
-            }
-        }
-
-        const hoje = new Date();
-        let limiteData = new Date(0);
-
-        if (periodo === 'mensal') {
-            limiteData = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-        } else if (periodo === '6meses') {
-            limiteData = new Date(hoje.getFullYear(), hoje.getMonth() - 6, 1);
-        } else if (periodo === '1ano') {
-            limiteData = new Date(hoje.getFullYear() - 1, hoje.getMonth(), 1);
-        }
-
-        dadosFiltradosAdmin = servicos.filter(s => {
-            const dataS = new Date(s.data_servico || s.created_at);
-            return dataS >= limiteData;
-        });
-
-        renderizarGraficoAdmin(dadosFiltradosAdmin, periodo);
-    };
-
-    function renderizarGraficoAdmin(dados, periodo) {
-        const ctx = document.getElementById('relatorioGraficoAdmin').getContext('2d');
-        if (relatorioChartAdmin) relatorioChartAdmin.destroy();
-
-        const faturacaoPorTempo = {};
-        dados.forEach(s => {
-            const d = new Date(s.data_servico || s.created_at);
-            let chave;
-            if (periodo === 'mensal') {
-                chave = d.toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short' });
-            } else {
-                chave = d.toLocaleDateString('pt-MZ', { month: 'long', year: 'numeric' });
-            }
-            if (!faturacaoPorTempo[chave]) faturacaoPorTempo[chave] = 0;
-            faturacaoPorTempo[chave] += s.valor_total;
-        });
-
-        const labels = Object.keys(faturacaoPorTempo);
-        const values = Object.values(faturacaoPorTempo);
-
-        relatorioChartAdmin = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Faturação Total (MZN)',
-                    data: values,
-                    backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                    borderColor: '#3b82f6',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: 'Desempenho Geral da Empresa (Admin)', font: { size: 16 } }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
 
     window.exportarRelatorioAtualAdmin = (tipo) => {
         if (dadosFiltradosAdmin.length === 0) {

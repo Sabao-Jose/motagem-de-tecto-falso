@@ -46,21 +46,23 @@ export default async function calculadoraPage() {
 
       <!-- Gesso Calculator -->
       <div class="tab-content active" id="gesso-content">
-        <div class="card">
-          <h2 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--primary);">
-            Cálculo de Tecto de Gesso
-          </h2>
-          <p style="color: var(--gray); margin-bottom: 2rem;">
-            Cálculo baseado na área (m²)
-          </p>
-          <form id="gessoForm">
-            <div class="form-group">
-              <label class="form-label">Área Total (m²)</label>
-              <input type="number" class="form-input" id="gesso-area" step="0.01" required placeholder="Ex: 200">
+        <div class="card" style="border: 2px solid #e0e7ff; background: linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.04) 100%);">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 2rem;">🏛️</span>
+            <div>
+              <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; color: var(--primary);">Cálculo de Tecto de Gesso</h2>
+              <p style="color: var(--gray); margin: 0; font-size: 0.92rem;">Cálculo dos materiais necessários baseado na área (m²)</p>
+            </div>
+          </div>
+          
+          <form id="gessoForm" style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label class="form-label" style="font-weight: 700;">📐 Área Total (m²)</label>
+              <input type="number" class="form-input" id="gesso-area" step="0.01" min="0.01" required placeholder="Ex: 200">
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 1rem;">
-              Calcular Materiais
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem; white-space: nowrap; flex-shrink: 0;">
+              🔢 Calcular Materiais
             </button>
           </form>
 
@@ -70,22 +72,23 @@ export default async function calculadoraPage() {
 
       <!-- PVC Calculator -->
       <div class="tab-content" id="pvc-content">
-        <div class="card">
-          <h2 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--secondary);">
-            Cálculo de Tecto de PVC
-          </h2>
-          <p style="color: var(--gray); margin-bottom: 2rem;">
-             Cálculo baseado na área (m²)
-          </p>
+        <div class="card" style="border: 2px solid #dcfce7; background: linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(5,150,105,0.04) 100%);">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 2rem;">📦</span>
+            <div>
+              <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; color: var(--secondary);">Cálculo de Tecto de PVC</h2>
+              <p style="color: var(--gray); margin: 0; font-size: 0.92rem;">Cálculo dos materiais necessários baseado na área (m²)</p>
+            </div>
+          </div>
 
-          <form id="pvcForm">
-            <div class="form-group">
-              <label class="form-label">Área Total (m²)</label>
-              <input type="number" class="form-input" id="pvc-area" step="0.01" required placeholder="Ex: 200">
+          <form id="pvcForm" style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label class="form-label" style="font-weight: 700;">📐 Área Total (m²)</label>
+              <input type="number" class="form-input" id="pvc-area" step="0.01" min="0.01" required placeholder="Ex: 200">
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 1rem;">
-              Calcular Materiais
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem; white-space: nowrap; flex-shrink: 0; background: var(--secondary);">
+              🔢 Calcular Materiais
             </button>
           </form>
 
@@ -95,28 +98,52 @@ export default async function calculadoraPage() {
 
       <!-- Modular Calculator -->
       <div class="tab-content" id="modular-content">
-        <div class="card">
-          <h2 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--accent);">
-            Cálculo de Tecto Modular
-          </h2>
-          <p style="color: var(--gray); margin-bottom: 2rem;">
-             Cálculo baseado na área (m²)
-          </p>
+        <div class="card" style="border: 2px solid #fef08a; background: linear-gradient(135deg, rgba(234,179,8,0.04) 0%, rgba(202,138,4,0.04) 100%);">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 2rem;">⬜</span>
+            <div>
+              <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; color: var(--accent);">Cálculo de Tecto Modular</h2>
+              <p style="color: var(--gray); margin: 0; font-size: 0.92rem;">Cálculo dos materiais necessários baseado na área (m²)</p>
+            </div>
+          </div>
 
-          <form id="modularForm">
-            <div class="form-group">
-              <label class="form-label">Área Total (m²)</label>
-              <input type="number" class="form-input" id="modular-area" step="0.01" required placeholder="Ex: 200">
+          <form id="modularForm" style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label class="form-label" style="font-weight: 700;">📐 Área Total (m²)</label>
+              <input type="number" class="form-input" id="modular-area" step="0.01" min="0.01" required placeholder="Ex: 200">
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 1rem;">
-              Calcular Materiais
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem; white-space: nowrap; flex-shrink: 0; background: var(--accent); color: white;">
+              🔢 Calcular Materiais
             </button>
           </form>
 
-      <div id="modular-resultado" style="display: none; margin-top: 2rem;"></div>
+          <div id="modular-resultado" style="display: none; margin-top: 2rem;"></div>
         </div>
       </div>
+    </div>
+
+    <!-- Massa de Gesso Calculator -->
+    <div class="card" style="margin-top: 2.5rem; border: 2px solid #e0e7ff; background: linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.04) 100%);">
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+        <span style="font-size: 2rem;">🪣</span>
+        <div>
+          <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; color: var(--primary);">Calculadora de Massa de Gesso</h2>
+          <p style="color: var(--gray); margin: 0; font-size: 0.92rem;">Calcula quantos sacos de gesso são necessários para barrar a superfície</p>
+        </div>
+      </div>
+
+      <form id="gessoMassaForm" style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+          <label class="form-label" style="font-weight: 700;">📐 Área a Barrar (m²)</label>
+          <input type="number" class="form-input" id="gesso-massa-area" step="0.01" min="0.01" required placeholder="Ex: 200">
+        </div>
+        <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem; white-space: nowrap; flex-shrink: 0;">
+          🔢 Calcular Sacos
+        </button>
+      </form>
+
+      <div id="gesso-massa-resultado" style="display: none; margin-top: 2rem;"></div>
     </div>
 
     <!-- Save Budget Modal -->
@@ -258,6 +285,168 @@ export default async function calculadoraPage() {
     const resultado = calcularModular(area, precos.modular || {});
     mostrarResultado('modular', resultado, area);
   });
+
+  // Massa de Gesso form
+  const gessoMassaForm = document.getElementById('gessoMassaForm');
+  if (gessoMassaForm) {
+    gessoMassaForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const area = parseFloat(document.getElementById('gesso-massa-area').value);
+      if (!area || area <= 0) return;
+      calcularMassaGesso(area);
+    });
+
+    // Live calculation on input
+    const areaInput = document.getElementById('gesso-massa-area');
+    if (areaInput) {
+      areaInput.addEventListener('input', () => {
+        const area = parseFloat(areaInput.value);
+        if (area > 0) calcularMassaGesso(area);
+        else document.getElementById('gesso-massa-resultado').style.display = 'none';
+      });
+    }
+  }
+}
+
+function calcularMassaGesso(area) {
+  const COB_20KG = 12; // m² por saco de 20 kg
+  const COB_25KG = 20; // m² por saco de 25 kg
+  const PRECO_20KG = 950; // MT por saco de 20 kg
+  const PRECO_25KG = 1300; // MT por saco de 25 kg
+  const PRECO_MAO_OBRA_M2 = 250; // MT por m² de mão de obra
+
+  const sacos20 = Math.ceil(area / COB_20KG);
+  const sacos25 = Math.ceil(area / COB_25KG);
+
+  const custo_sacos20 = sacos20 * PRECO_20KG;
+  const custo_sacos25 = sacos25 * PRECO_25KG;
+  const mao_obra = area * PRECO_MAO_OBRA_M2;
+  const total_geral_20 = custo_sacos20 + mao_obra;
+  const total_geral_25 = custo_sacos25 + mao_obra;
+
+  // Store calculation data for saving
+  window.currentMassaCalculation = {
+    tipo: 'gesso_massa',
+    area,
+    sacos20,
+    sacos25,
+    preco_20: PRECO_20KG,
+    preco_25: PRECO_25KG,
+    custo_sacos20,
+    custo_sacos25,
+    mao_obra,
+    total_geral_20,
+    total_geral_25,
+    total_kg_20: sacos20 * 20,
+    total_kg_25: sacos25 * 25,
+    cobertura_20: sacos20 * COB_20KG,
+    cobertura_25: sacos25 * COB_25KG
+  };
+
+  const container = document.getElementById('gesso-massa-resultado');
+  container.innerHTML = `
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem;">
+
+      <!-- Saco 20 kg -->
+      <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: var(--radius-lg); padding: 1.5rem; color: white; box-shadow: 0 4px 20px rgba(99,102,241,0.3);">
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem;">
+          <span style="font-size: 1.75rem;">📦</span>
+          <div>
+            <p style="margin: 0; font-size: 0.82rem; opacity: 0.85;">Saco de 20 kg (cobre 12 m²)</p>
+            <p style="margin: 0; font-size: 0.82rem; opacity: 0.75;">Área: <strong>${area.toFixed(2)} m²</strong></p>
+          </div>
+        </div>
+        <div style="font-size: 3rem; font-weight: 900; line-height: 1;">${sacos20}</div>
+        <div style="font-size: 1rem; opacity: 0.9; margin-top: 0.25rem;">sacos necessários</div>
+        <div style="margin-top: 0.75rem; font-size: 0.8rem; opacity: 0.75; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 0.6rem;">
+          ${sacos20} × 20 kg = <strong>${(sacos20 * 20).toFixed(0)} kg</strong> total &nbsp;·&nbsp; cobre até <strong>${(sacos20 * COB_20KG).toFixed(0)} m²</strong>
+        </div>
+        <div style="margin-top: 0.75rem; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 0.6rem; opacity: 0.95;">
+          Preço unitário: <strong>${formatCurrency(PRECO_20KG)}</strong><br>
+          Custo dos sacos: <strong>${formatCurrency(custo_sacos20)}</strong>
+        </div>
+      </div>
+
+      <!-- Saco 25 kg -->
+      <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-radius: var(--radius-lg); padding: 1.5rem; color: white; box-shadow: 0 4px 20px rgba(16,185,129,0.3);">
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem;">
+          <span style="font-size: 1.75rem;">📦</span>
+          <div>
+            <p style="margin: 0; font-size: 0.82rem; opacity: 0.85;">Saco de 25 kg (cobre 20 m²)</p>
+            <p style="margin: 0; font-size: 0.82rem; opacity: 0.75;">Área: <strong>${area.toFixed(2)} m²</strong></p>
+          </div>
+        </div>
+        <div style="font-size: 3rem; font-weight: 900; line-height: 1;">${sacos25}</div>
+        <div style="font-size: 1rem; opacity: 0.9; margin-top: 0.25rem;">sacos necessários</div>
+        <div style="margin-top: 0.75rem; font-size: 0.8rem; opacity: 0.75; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 0.6rem;">
+          ${sacos25} × 25 kg = <strong>${(sacos25 * 25).toFixed(0)} kg</strong> total &nbsp;·&nbsp; cobre até <strong>${(sacos25 * COB_25KG).toFixed(0)} m²</strong>
+        </div>
+        <div style="margin-top: 0.75rem; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 0.6rem; opacity: 0.95;">
+          Preço unitário: <strong>${formatCurrency(PRECO_25KG)}</strong><br>
+          Custo dos sacos: <strong>${formatCurrency(custo_sacos25)}</strong>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Resumo de Custos -->
+    <div style="margin-top: 1.25rem; padding: 1.25rem; background: white; border: 1px solid var(--light); border-radius: var(--radius-lg);">
+      <h4 style="font-weight: 700; margin-bottom: 1rem; color: var(--primary);">💰 Resumo de Custos</h4>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+
+        <!-- Opção 20 kg -->
+        <div style="background: #eef2ff; border-radius: var(--radius-lg); padding: 1rem; border: 1px solid #c7d2fe;">
+          <p style="font-weight: 700; margin-bottom: 0.5rem; color: #4338ca;">📦 Opção Sacos de 20 kg</p>
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.35rem;">
+            <span>Sacos (${sacos20} × ${formatCurrency(PRECO_20KG)}):</span>
+            <strong>${formatCurrency(custo_sacos20)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.35rem;">
+            <span>Mão de Obra (${area.toFixed(2)} m² × ${formatCurrency(PRECO_MAO_OBRA_M2)}):</span>
+            <strong>${formatCurrency(mao_obra)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 1rem; font-weight: 800; padding-top: 0.5rem; border-top: 2px solid #c7d2fe;">
+            <span>TOTAL:</span>
+            <span style="color: var(--primary);">${formatCurrency(total_geral_20)}</span>
+          </div>
+        </div>
+
+        <!-- Opção 25 kg -->
+        <div style="background: #ecfdf5; border-radius: var(--radius-lg); padding: 1rem; border: 1px solid #a7f3d0;">
+          <p style="font-weight: 700; margin-bottom: 0.5rem; color: #047857;">📦 Opção Sacos de 25 kg</p>
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.35rem;">
+            <span>Sacos (${sacos25} × ${formatCurrency(PRECO_25KG)}):</span>
+            <strong>${formatCurrency(custo_sacos25)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.35rem;">
+            <span>Mão de Obra (${area.toFixed(2)} m² × ${formatCurrency(PRECO_MAO_OBRA_M2)}):</span>
+            <strong>${formatCurrency(mao_obra)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 1rem; font-weight: 800; padding-top: 0.5rem; border-top: 2px solid #a7f3d0;">
+            <span>TOTAL:</span>
+            <span style="color: var(--secondary);">${formatCurrency(total_geral_25)}</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="margin-top: 1rem; padding: 0.85rem 1rem; background: #fef9c3; border: 1px solid #fde68a; border-radius: var(--radius-lg); font-size: 0.85rem; color: #78350f;">
+      ⚠️ <strong>Nota:</strong> Os valores incluem 1 saco extra de margem para perdas (arredondado para cima). Mão de obra calculada a 250 MT/m².
+    </div>
+
+    <!-- Save Budget Button -->
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button class="btn btn-primary" style="padding: 0.75rem 1.5rem; font-size: 1rem;" onclick="salvarOrcamentoMassa('20')">
+        💾 Salvar Orçamento de Massa de Gesso Fino (20 kg)
+      </button>
+      <button class="btn btn-primary" style="padding: 0.75rem 1.5rem; font-size: 1rem; background: var(--secondary);" onclick="salvarOrcamentoMassa('25')">
+        💾 Salvar Orçamento de Massa de Gesso Fino (25 kg)
+      </button>
+    </div>
+  `;
+  container.style.display = 'block';
 }
 
 // Global state for the current calculation
@@ -633,6 +822,48 @@ document.getElementById('btnSairCalc')?.addEventListener('click', () => {
 
 window.salvarOrcamento = function () {
   const modal = document.getElementById('saveModal');
+  if (modal) {
+    modal.style.display = "block";
+    const nomeInput = document.getElementById('cliente-nome');
+    if (nomeInput) nomeInput.focus();
+  } else {
+    console.error('Modal de salvar não encontrado!');
+    showError('Erro: Modal de salvar não disponível.');
+  }
+};
+
+window.salvarOrcamentoMassa = function (tipoSaco) {
+  const modal = document.getElementById('saveModal');
+  const calc = window.currentMassaCalculation;
+  
+  if (!calc || !calc.area) {
+    showError('Nenhum cálculo de massa de gesso disponível. Faça o cálculo primeiro.');
+    return;
+  }
+
+  // Determinar a opção escolhida (20 kg por padrão)
+  const usar20 = tipoSaco !== '25';
+
+  const nomeMaterial = usar20
+    ? 'Saco de Gesso Fino 20kg'
+    : 'Saco de Gesso Fino 25kg';
+  const quantidade = usar20 ? calc.sacos20 : calc.sacos25;
+  const precoUnitario = usar20 ? calc.preco_20 : calc.preco_25;
+  const custoSacos = usar20 ? calc.custo_sacos20 : calc.custo_sacos25;
+  const totalGeral = usar20 ? calc.total_geral_20 : calc.total_geral_25;
+
+  // Set the calculation data for the save form to use
+  window.currentCalculation = {
+    tipo: 'gesso_massa',
+    area: calc.area,
+    materiais: [
+      { nome: nomeMaterial, quantidade, unidade: 'saco', preco_unitario: precoUnitario, total: custoSacos }
+    ],
+    total_materiais: custoSacos,
+    mao_obra: calc.mao_obra,
+    total_geral: totalGeral
+  };
+
   if (modal) {
     modal.style.display = "block";
     const nomeInput = document.getElementById('cliente-nome');

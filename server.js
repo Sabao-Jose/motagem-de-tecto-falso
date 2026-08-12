@@ -98,6 +98,7 @@ const upload = multer({
 
 // ==================== MIDDLEWARE DE AUTENTICAÇÃO (MELHORADO) ====================
 const { autenticarToken, verificarRole, gerarTokens, renovarToken } = require('./middleware/auth');
+const { auditMiddleware, registrarAuditoria } = require('./middleware/audit');
 
 // ==================== FUNÇÃO DE ENVIO DE EMAIL ====================
 
@@ -156,22 +157,27 @@ app.post('/api/auth/login', (req, res) => {
             return res.status(500).json({ error: err.message });
         }
         if (!user) {
+            registrarAuditoria(null, 'login_falha', { email, motivo: 'utilizador_inexistente' }, req.ip, req.headers['user-agent']);
             return res.status(401).json({ error: 'Email ou senha incorretos' });
         }
 
         const senhaValida = bcrypt.compareSync(senha, user.senha);
         if (!senhaValida) {
             db.run('UPDATE usuarios SET tentativas_login = tentativas_login + 1 WHERE id = ?', [user.id]);
+            registrarAuditoria(user.id, 'login_falha', { email, motivo: 'senha_incorreta' }, req.ip, req.headers['user-agent']);
             return res.status(401).json({ error: 'Email ou senha incorretos' });
         }
 
         if (user.ativo === 0) {
+            registrarAuditoria(user.id, 'login_conta_desativada', { email }, req.ip, req.headers['user-agent']);
             return res.status(403).json({ error: 'Conta desativada. Contacte o administrador.' });
         }
 
         db.run('UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP, tentativas_login = 0 WHERE id = ?', [user.id]);
 
         const tokens = gerarTokens(user);
+
+        registrarAuditoria(user.id, 'login_sucesso', { email }, req.ip, req.headers['user-agent']);
 
         res.json({
             ...tokens,
@@ -215,6 +221,8 @@ app.post('/api/auth/register', (req, res) => {
 
                 const tokens = gerarTokens({ id: this.lastID, nome, email, role: 'cliente' });
 
+                registrarAuditoria(this.lastID, 'registro_cliente', { nome, email }, req.ip, req.headers['user-agent']);
+
                 res.json({
                     ...tokens,
                     user: { id: this.lastID, nome, email, role: 'cliente' }
@@ -240,7 +248,7 @@ app.get('/api/auth/me', autenticarToken, (req, res) => {
 // ==================== ROTAS DE GESTÃO DE USUÁRIOS (ADMIN) ====================
 
 // Atualizar dados de um utilizador (nome, email, telefone)
-app.put('/api/usuarios/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/usuarios/:id', autenticarToken, verificarRole('admin'), auditMiddleware('utilizador_atualizado'), (req, res) => {
     const { nome, email, telefone } = req.body;
 
     if (!nome || !email) {
@@ -275,7 +283,7 @@ app.get('/api/usuarios', autenticarToken, verificarRole('admin'), (req, res) => 
 });
 
 // Criar usuário (admin ou funcionario)
-app.post('/api/usuarios', autenticarToken, verificarRole('admin'), (req, res) => {
+app.post('/api/usuarios', autenticarToken, verificarRole('admin'), auditMiddleware('utilizador_criado'), (req, res) => {
     const { nome, email, senha, telefone, role, salario, endereco, numero_conta, banco, tipo_conta } = req.body;
 
     if (!nome || !email || !senha || !role) {
@@ -303,7 +311,7 @@ app.post('/api/usuarios', autenticarToken, verificarRole('admin'), (req, res) =>
 });
 
 // Atualizar role de um usuário
-app.put('/api/usuarios/:id/role', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/usuarios/:id/role', autenticarToken, verificarRole('admin'), auditMiddleware('role_atualizada'), (req, res) => {
     const { role } = req.body;
 
     if (!['admin', 'funcionario', 'cliente'].includes(role)) {
@@ -318,7 +326,7 @@ app.put('/api/usuarios/:id/role', autenticarToken, verificarRole('admin'), (req,
 });
 
 // Alternar permissão de responder mensagens
-app.put('/api/usuarios/:id/responder-permissao', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/usuarios/:id/responder-permissao', autenticarToken, verificarRole('admin'), auditMiddleware('permissao_responder_atualizada'), (req, res) => {
     const { pode_responder } = req.body;
     db.run(
         'UPDATE usuarios SET pode_responder_mensagens = ? WHERE id = ?',
@@ -332,7 +340,7 @@ app.put('/api/usuarios/:id/responder-permissao', autenticarToken, verificarRole(
 });
 
 // Deletar usuário
-app.delete('/api/usuarios/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+app.delete('/api/usuarios/:id', autenticarToken, verificarRole('admin'), auditMiddleware('utilizador_apagado'), (req, res) => {
     const userId = req.params.id;
 
     // PostgreSQL impõe as chaves estrangeiras: antes de apagar o utilizador é
@@ -364,7 +372,7 @@ app.delete('/api/usuarios/:id', autenticarToken, verificarRole('admin'), (req, r
 });
 
 // Atualizar dados de funcionário (salario, endereco, numero_conta, banco, tipo_conta, foto)
-app.put('/api/usuarios/:id/dados', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/usuarios/:id/dados', autenticarToken, verificarRole('admin'), auditMiddleware('dados_funcionario_atualizados'), (req, res) => {
     const { salario, endereco, numero_conta, banco, tipo_conta, foto } = req.body;
     db.run(
         'UPDATE usuarios SET salario = ?, endereco = ?, numero_conta = ?, banco = ?, tipo_conta = ?, foto = ? WHERE id = ?',
@@ -378,7 +386,7 @@ app.put('/api/usuarios/:id/dados', autenticarToken, verificarRole('admin'), (req
 });
 
 // Upload foto do funcionário
-app.post('/api/usuarios/:id/foto', autenticarToken, verificarRole('admin'), async (req, res) => {
+app.post('/api/usuarios/:id/foto', autenticarToken, verificarRole('admin'), auditMiddleware('foto_funcionario_atualizada'), async (req, res) => {
     upload.single('foto')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
@@ -436,7 +444,7 @@ app.get('/api/clientes/:id', (req, res) => {
 });
 
 // Criar novo cliente
-app.post('/api/clientes', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.post('/api/clientes', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('cliente_criado'), (req, res) => {
     const { nome, telefone, email, endereco } = req.body;
 
     if (telefone && telefone.replace(/[^0-9]/g, '').length > 9) {
@@ -457,7 +465,7 @@ app.post('/api/clientes', autenticarToken, verificarRole('admin', 'funcionario')
 });
 
 // Atualizar cliente
-app.put('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.put('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('cliente_atualizado'), (req, res) => {
     const { nome, telefone, email, endereco } = req.body;
 
     if (telefone && telefone.replace(/[^0-9]/g, '').length > 9) {
@@ -478,7 +486,7 @@ app.put('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionari
 });
 
 // Deletar cliente
-app.delete('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.delete('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('cliente_apagado'), (req, res) => {
     const clienteId = req.params.id;
 
     // PostgreSQL impõe as chaves estrangeiras: antes de apagar o cliente é
@@ -548,7 +556,7 @@ app.get('/api/servicos/:id', (req, res) => {
 });
 
 // Criar novo serviço/orçamento
-app.post('/api/servicos', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.post('/api/servicos', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('servico_criado'), (req, res) => {
     const {
         cliente_id,
         tipo_teto,
@@ -589,7 +597,7 @@ app.post('/api/servicos', autenticarToken, verificarRole('admin', 'funcionario')
 });
 
 // Atualizar serviço (apenas admin)
-app.put('/api/servicos/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/servicos/:id', autenticarToken, verificarRole('admin'), auditMiddleware('servico_atualizado'), (req, res) => {
     const { status, observacoes, area } = req.body;
 
     // Build query dynamically based on what was provided
@@ -618,7 +626,7 @@ app.put('/api/servicos/:id', autenticarToken, verificarRole('admin'), (req, res)
 });
 
 // Atualizar materiais do serviço (apenas admin)
-app.put('/api/servicos/:id/materiais', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/servicos/:id/materiais', autenticarToken, verificarRole('admin'), auditMiddleware('materiais_atualizados'), (req, res) => {
     const { materiais_json, valor_materiais, valor_total } = req.body;
     db.run(
         'UPDATE servicos SET materiais_json = ?, valor_materiais = ?, valor_total = ? WHERE id = ?',
@@ -678,7 +686,7 @@ app.delete('/api/servicos/:id', autenticarToken, verificarRole('admin'), (req, r
 // ==================== ROTAS DE CONTACTO ====================
 
 // Enviar mensagem de contacto (público)
-app.post('/api/contact', (req, res) => {
+app.post('/api/contact', auditMiddleware('mensagem_contacto_recebida'), (req, res) => {
     const { nome, telefone, email, assunto, mensagem } = req.body;
 
     if (!nome || !telefone || !email || !assunto || !mensagem) {
@@ -738,7 +746,7 @@ app.get('/api/contact', autenticarToken, verificarRole('admin', 'funcionario'), 
 });
 
 // Marcar mensagem como lida
-app.put('/api/contact/:id/read', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.put('/api/contact/:id/read', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('mensagem_marcada_lida'), (req, res) => {
     db.run('UPDATE contact_messages SET lido = 1 WHERE id = ?', [req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Mensagem não encontrada' });
@@ -747,7 +755,7 @@ app.put('/api/contact/:id/read', autenticarToken, verificarRole('admin', 'funcio
 });
 
 // Responder mensagem (com anexo opcional) - envia email ao cliente
-app.put('/api/contact/:id/reply', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+app.put('/api/contact/:id/reply', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('mensagem_respondida'), async (req, res) => {
     upload.single('anexo')(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ error: err.message || err });
@@ -814,7 +822,7 @@ app.put('/api/contact/:id/reply', autenticarToken, verificarRole('admin', 'funci
 });
 
 // Deletar mensagem
-app.delete('/api/contact/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.delete('/api/contact/:id', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('mensagem_apagada'), (req, res) => {
     db.run('DELETE FROM contact_messages WHERE id = ?', [req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: 'Mensagem deletada' });
@@ -864,7 +872,7 @@ app.get('/api/portfolio', (req, res) => {
 });
 
 // Adicionar projeto ao portfólio
-app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('portfolio_criado'), async (req, res) => {
     // Caminho JSON: upload direto ao Blob já feito pelo browser (vídeos/imagens grandes)
     if (!req.is('multipart/form-data')) {
         const { titulo, descricao, tipo_servico, imagem_url, video_url } = req.body;
@@ -922,7 +930,7 @@ app.post('/api/portfolio', autenticarToken, verificarRole('admin', 'funcionario'
 });
 
 // Atualizar projeto do portfólio
-app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), async (req, res) => {
+app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('portfolio_atualizado'), async (req, res) => {
     // Caminho JSON: upload direto ao Blob já feito pelo browser
     if (!req.is('multipart/form-data')) {
         const { titulo, descricao, tipo_servico, imagem_url, video_url, substituir_imagem, substituir_video } = req.body;
@@ -1021,7 +1029,7 @@ app.put('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionar
 });
 
 // Deletar projeto do portfólio
-app.delete('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.delete('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('portfolio_apagado'), (req, res) => {
     // Buscar arquivo para deletar
     db.get('SELECT * FROM portfolio WHERE id = ?', [req.params.id], async (err, row) => {
         if (err) {
@@ -1049,7 +1057,7 @@ app.delete('/api/portfolio/:id', autenticarToken, verificarRole('admin', 'funcio
 // ==================== ROTAS DE PEDIDOS DE PORTFÓLIO ====================
 
 // Cliente envia pedido de interesse num projeto do portfólio
-app.post('/api/pedidos-portfolio', autenticarToken, (req, res) => {
+app.post('/api/pedidos-portfolio', autenticarToken, auditMiddleware('pedido_portfolio_enviado'), (req, res) => {
     const { portfolio_id, portfolio_titulo, portfolio_imagem, portfolio_video, portfolio_tipo, mensagem } = req.body;
     const user = req.user;
 
@@ -1078,7 +1086,7 @@ app.get('/api/pedidos-portfolio', autenticarToken, verificarRole('admin', 'funci
 });
 
 // Admin atualiza status do pedido
-app.put('/api/pedidos-portfolio/:id/status', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.put('/api/pedidos-portfolio/:id/status', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('pedido_status_atualizado'), (req, res) => {
     const { status, orcamento_id } = req.body;
     const validStatus = ['pendente', 'visto', 'orcamento_criado'];
     if (!validStatus.includes(status)) {
@@ -1096,7 +1104,7 @@ app.put('/api/pedidos-portfolio/:id/status', autenticarToken, verificarRole('adm
 });
 
 // Admin elimina um pedido
-app.delete('/api/pedidos-portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.delete('/api/pedidos-portfolio/:id', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('pedido_apagado'), (req, res) => {
     db.run('DELETE FROM pedidos_portfolio WHERE id = ?', [req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
@@ -1125,7 +1133,7 @@ app.get('/api/configuracoes', (req, res) => {
 });
 
 // Atualizar configuração
-app.put('/api/configuracoes/:chave', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.put('/api/configuracoes/:chave', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('configuracao_atualizada'), (req, res) => {
     const { valor } = req.body;
 
     db.run(
@@ -1165,7 +1173,7 @@ app.get('/api/faltas', autenticarToken, verificarRole('admin'), (req, res) => {
 });
 
 // Marcar falta
-app.post('/api/faltas', autenticarToken, verificarRole('admin'), (req, res) => {
+app.post('/api/faltas', autenticarToken, verificarRole('admin'), auditMiddleware('falta_registada'), (req, res) => {
     const { usuario_id, data, observacao, tipo, tipo_falta } = req.body;
     if (!usuario_id || !data) {
         return res.status(400).json({ error: 'usuario_id e data são obrigatórios' });
@@ -1181,7 +1189,7 @@ app.post('/api/faltas', autenticarToken, verificarRole('admin'), (req, res) => {
 });
 
 // Justificar (ou reverter) falta com tipo opcional
-app.put('/api/faltas/:id/justificar', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/faltas/:id/justificar', autenticarToken, verificarRole('admin'), auditMiddleware('falta_justificada'), (req, res) => {
     const { tipo, justificada } = req.body;
     let sql, params;
     if (justificada === 0) {
@@ -1203,7 +1211,7 @@ app.put('/api/faltas/:id/justificar', autenticarToken, verificarRole('admin'), (
 });
 
 // Apagar falta
-app.delete('/api/faltas/:id', autenticarToken, verificarRole('admin'), (req, res) => {
+app.delete('/api/faltas/:id', autenticarToken, verificarRole('admin'), auditMiddleware('falta_apagada'), (req, res) => {
     db.run('DELETE FROM faltas WHERE id = ?', [req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Falta não encontrada' });
@@ -1214,7 +1222,7 @@ app.delete('/api/faltas/:id', autenticarToken, verificarRole('admin'), (req, res
 // ==================== ROTAS DE VERIFICAÇÃO DE CLIENTES ====================
 
 // Verificar cliente
-app.put('/api/clientes/:id/verificar', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/clientes/:id/verificar', autenticarToken, verificarRole('admin'), auditMiddleware('cliente_verificado'), (req, res) => {
     db.run("UPDATE usuarios SET verificado = 1 WHERE id = ? AND role = 'cliente'", [req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Cliente não encontrado' });
@@ -1239,7 +1247,7 @@ app.get('/api/pagamentos', autenticarToken, verificarRole('admin'), (req, res) =
 });
 
 // Marcar serviço como pago
-app.put('/api/servicos/:id/pagar', autenticarToken, verificarRole('admin'), (req, res) => {
+app.put('/api/servicos/:id/pagar', autenticarToken, verificarRole('admin'), auditMiddleware('pagamento_registado'), (req, res) => {
     db.run('UPDATE servicos SET pago = 1 WHERE id = ?', [req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Serviço não encontrado' });
@@ -1270,7 +1278,7 @@ app.get('/api/precos', (req, res) => {
 });
 
 // Atualizar preço
-app.put('/api/precos/:id', autenticarToken, verificarRole('admin', 'funcionario'), (req, res) => {
+app.put('/api/precos/:id', autenticarToken, verificarRole('admin', 'funcionario'), auditMiddleware('preco_atualizado'), (req, res) => {
     const { preco } = req.body;
 
     db.run(
@@ -1541,6 +1549,95 @@ app.get('/api/agente-relatorio', autenticarToken, verificarRole('admin'), (req, 
         relatorio.ultimosBackups = rows || [];
         done();
     });
+});
+
+// ==================== ROTAS DE HISTÓRICO / AUDITORIA DO SISTEMA ====================
+
+// Listar histórico completo do sistema (apenas admin), com filtros e paginação
+app.get('/api/auditoria', autenticarToken, verificarRole('admin'), (req, res) => {
+    const pagina = Math.max(1, parseInt(req.query.pagina) || 1);
+    const porPagina = Math.min(100, Math.max(5, parseInt(req.query.por_pagina) || 25));
+    const offset = (pagina - 1) * porPagina;
+
+    const where = [];
+    const params = [];
+
+    if (req.query.acao) {
+        where.push('al.acao = ?');
+        params.push(req.query.acao);
+    }
+    if (req.query.usuario_id) {
+        where.push('al.usuario_id = ?');
+        params.push(parseInt(req.query.usuario_id) || 0);
+    }
+    if (req.query.data_inicio) {
+        where.push("al.created_at >= ?");
+        params.push(req.query.data_inicio + ' 00:00:00');
+    }
+    if (req.query.data_fim) {
+        where.push("al.created_at <= ?");
+        params.push(req.query.data_fim + ' 23:59:59');
+    }
+    if (req.query.busca) {
+        where.push("(al.acao LIKE ? OR al.detalhes LIKE ? OR COALESCE(u.nome, '') LIKE ? OR al.ip LIKE ?)");
+        const termo = '%' + req.query.busca + '%';
+        params.push(termo, termo, termo, termo);
+    }
+
+    const whereSql = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
+
+    db.get(
+        `SELECT COUNT(*) as total FROM audit_logs al LEFT JOIN usuarios u ON al.usuario_id = u.id ${whereSql}`,
+        params,
+        (err, rowTotal) => {
+            if (err) return res.status(500).json({ error: err.message });
+            const total = rowTotal ? rowTotal.total : 0;
+
+            db.all(
+                `SELECT al.*, u.nome as usuario_nome
+                 FROM audit_logs al
+                 LEFT JOIN usuarios u ON al.usuario_id = u.id
+                 ${whereSql}
+                 ORDER BY al.created_at DESC
+                 LIMIT ? OFFSET ?`,
+                [...params, porPagina, offset],
+                (err2, rows) => {
+                    if (err2) return res.status(500).json({ error: err2.message });
+
+                    // Ações distintas existentes (para o filtro do painel)
+                    db.all('SELECT DISTINCT acao FROM audit_logs ORDER BY acao', [], (err3, acoes) => {
+                        if (err3) return res.status(500).json({ error: err3.message });
+                        res.json({
+                            logs: rows || [],
+                            total,
+                            pagina,
+                            porPagina,
+                            totalPaginas: Math.max(1, Math.ceil(total / porPagina)),
+                            acoes: (acoes || []).map(a => a.acao)
+                        });
+                    });
+                }
+            );
+        }
+    );
+});
+
+// Apagar histórico de auditoria (apenas admin, com confirmação dupla no frontend)
+app.delete('/api/auditoria', autenticarToken, verificarRole('admin'), (req, res) => {
+    const { ate } = req.body || {};
+    if (ate) {
+        db.run('DELETE FROM audit_logs WHERE created_at <= ?', [ate + ' 23:59:59'], function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            registrarAuditoria(req.user.id, 'historico_apagado', { ate, registos: this.changes }, req.ip, req.headers['user-agent']);
+            res.json({ message: 'Histórico anterior a ' + ate + ' apagado!', apagados: this.changes });
+        });
+    } else {
+        db.run('DELETE FROM audit_logs', [], function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            registrarAuditoria(req.user.id, 'historico_total_apagado', { registos: this.changes }, req.ip, req.headers['user-agent']);
+            res.json({ message: 'Todo o histórico foi apagado!', apagados: this.changes });
+        });
+    }
 });
 
 // ==================== ROTA DE REFRESH TOKEN ====================

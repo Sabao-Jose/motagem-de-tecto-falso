@@ -153,7 +153,7 @@ function drawFooterBar(doc, pw, ph, pageNum, totalPages, copyType) {
     doc.setFontSize(6);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.gray);
-    doc.text('Tecto Falso Saba\u00F3  \u2022  www.tectofalsosabao.co.mz  \u2022  contato@tectofalsosabao.co.mz  \u2022  +258 84 000 0000', pw / 2, footerY + 7, { align: 'center' });
+    doc.text('Tecto Falso Saba\u00F3  \u2022  http://www.tectofalsosabao.co.mz  \u2022  contato@tectofalsosabao.co.mz  \u2022  +258 87 029 6633 / 84 420 0152', pw / 2, footerY + 7, { align: 'center' });
 
     const viaText = copyType === 'empresa' ? 'VIA EMPRESA' : 'VIA CLIENTE';
     doc.setFontSize(6);
@@ -301,6 +301,12 @@ async function gerarPDF(tipo, area, largura, comprimento, totalMateriais, totalM
     doc.setLineWidth(0.3);
     doc.line(sigLeft, yPos, sigLeft + sigW, yPos);
     doc.line(sigRight, yPos, sigRight + sigW, yPos);
+
+    // Nome (assinatura) automático
+    doc.setFontSize(16);
+    doc.setFont('times', 'italic');
+    doc.setTextColor(...COLORS.primaryDark);
+    doc.text('Jose Sabao', sigRight + sigW / 2, yPos - 2, { align: 'center' });
 
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');

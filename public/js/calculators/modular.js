@@ -7,7 +7,7 @@
  */
 
 export function calcularModular(area, precos) {
-    const PRECO_MAO_OBRA_M2 = 250;
+    const PRECO_MAO_OBRA_M2 = 300;
 
     // 1. Tectofalso Gesso 60x60 (2.88)
     // O usuário especificou "2.88", que é a metragem de uma caixa padrão (8 placas de 0.36m²).
@@ -39,40 +39,40 @@ export function calcularModular(area, precos) {
             nome: 'Tectofalso Gesso 60x60 (Caixa 2.88m²)',
             quantidade: caixas,
             unidade: 'caixa',
-            preco_unitario: 1050, // Preço por caixa ou m²? Usuário disse "modular esta 830mt". Assumindo por caixa ou m²? 
+            preco_unitario: 1350, // Preço por caixa ou m²? Usuário disse "modular esta 830mt". Assumindo por caixa ou m²? 
             // Se 830 for por m², caixa = 830 * 2.88. Se for por caixa, 830.
             // Geralmente preço é por m² ou caixa. 830MT por m² é caro, 830 por caixa é barato.
             // O usuário disse "modular esta 830mt". Vamos assumir preço da CAIXA ou UNIDADE principal de venda.
             // Dado o contexto "cada chapa de gesso 895", 830 deve ser a CAIXA.
-            total: caixas * 1050
+            total: caixas * 1350
         },
         {
             nome: 'Ctee Cross Tee 1.2 m',
             quantidade: crossTee120,
             unidade: 'unidade',
-            preco_unitario: precos['Cross Tee 1.2'] || 200,
-            total: crossTee120 * (precos['Cross Tee 1.2'] || 200)
+            preco_unitario: precos['Cross Tee 1.2'] || 250,
+            total: crossTee120 * (precos['Cross Tee 1.2'] || 250)
         },
         {
             nome: 'Stee Small Cross Tee 60 cm',
             quantidade: crossTee60,
             unidade: 'unidade',
-            preco_unitario: precos['Small Tee 0.6'] || 120,
-            total: crossTee60 * (precos['Small Tee 0.6'] || 120)
+            preco_unitario: precos['Small Tee 0.6'] || 150,
+            total: crossTee60 * (precos['Small Tee 0.6'] || 150)
         },
         {
             nome: 'Mtee Main Tee 3.60 m',
             quantidade: mainTee,
             unidade: 'unidade',
-            preco_unitario: precos['Main Tee 3.6'] || 450,
-            total: mainTee * (precos['Main Tee 3.6'] || 450)
+            preco_unitario: precos['Main Tee 3.6'] || 550,
+            total: mainTee * (precos['Main Tee 3.6'] || 550)
         },
         {
             nome: 'Gypsum Nylon Nail-in Anchor bucha tapite',
             quantidade: buchas,
             unidade: 'unidade',
-            preco_unitario: precos['Anchor'] || 5,
-            total: buchas * (precos['Anchor'] || 5)
+            preco_unitario: precos['Anchor'] || 400,
+            total: buchas * (precos['Anchor'] || 400)
         },
         {
             nome: 'Cantoneira 3 m branca',
@@ -97,7 +97,7 @@ export function calcularModular(area, precos) {
         observacoes: [
             'Cálculo baseado na área total informada',
             'Fatores de estrutura: Main(0.27), Cross(1.35), Small(1.35)',
-            'Valores de mão de obra: 350 MT/m²'
+            'Valores de mão de obra: 300 MT/m²'
         ]
     };
 }

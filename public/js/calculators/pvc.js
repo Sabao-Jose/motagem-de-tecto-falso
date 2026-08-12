@@ -7,7 +7,7 @@
  */
 
 export function calcularPVC(area, precos) {
-    const PRECO_MAO_OBRA_M2 = 400;
+    const PRECO_MAO_OBRA_M2 = 350;
 
     // 1. PVC White 6mm*250mm*5.9m
     // Área da peça: 0.25 * 5.9 = 1.475 m²
@@ -47,15 +47,15 @@ export function calcularPVC(area, precos) {
             nome: 'PVC T-White Calhas',
             quantidade: calhas,
             unidade: 'unidade',
-            preco_unitario: precos['PVC Calhas'] || 200,
-            total: calhas * (precos['PVC Calhas'] || 200)
+            preco_unitario: precos['PVC Calhas'] || 250,
+            total: calhas * (precos['PVC Calhas'] || 250)
         },
         {
             nome: 'Gypsum Furring Perfil',
             quantidade: furringPerfil,
             unidade: 'unidade',
-            preco_unitario: precos['Furring Perfil'] || 250,
-            total: furringPerfil * (precos['Furring Perfil'] || 250)
+            preco_unitario: precos['Furring Perfil'] || 260,
+            total: furringPerfil * (precos['Furring Perfil'] || 260)
         },
         {
             nome: '1000 pcs Gypsum Dry Wall (Caixa)',
@@ -75,15 +75,15 @@ export function calcularPVC(area, precos) {
             nome: 'Gypsum Nylon Nail-in Anchor bucha tapite',
             quantidade: buchas,
             unidade: 'unidade',
-            preco_unitario: precos['Anchor'] || 5,
-            total: buchas * (precos['Anchor'] || 5)
+            preco_unitario: precos['Anchor'] || 400,
+            total: buchas * (precos['Anchor'] || 400)
         },
         {
             nome: 'Gypsum Main Channel',
             quantidade: mainChannel,
             unidade: 'unidade',
-            preco_unitario: precos['Main Channel'] || 420,
-            total: mainChannel * (precos['Main Channel'] || 420)
+            preco_unitario: precos['Main Channel'] || 430,
+            total: mainChannel * (precos['Main Channel'] || 430)
         }
     ];
 
@@ -101,7 +101,7 @@ export function calcularPVC(area, precos) {
         observacoes: [
             'Cálculo baseado na área total informada',
             'Estrutura metálica considerada',
-            'Valores de mão de obra: 400 MT/m²'
+            'Valores de mão de obra: 350 MT/m²'
         ]
     };
 }

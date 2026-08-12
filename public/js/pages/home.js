@@ -53,7 +53,7 @@ export default async function homePage() {
       <section class="hm-stats ${isAdminOrFunc ? 'hm-stats--4' : ''}">
         <div class="hm-stat">
           <div class="hm-stat-icon blue">👥</div>
-          <div class="hm-stat-value">${stats.total_clientes}</div>
+          <div class="hm-stat-value">${stats.total_servicos}</div>
           <p class="hm-stat-label">Clientes Satisfeitos</p>
         </div>
 

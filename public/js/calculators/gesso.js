@@ -8,7 +8,7 @@
  */
 
 export function calcularGesso(area, precos) {
-    const PRECO_MAO_OBRA_M2 = 250;
+    const PRECO_MAO_OBRA_M2 = 450;
 
     // Fórmulas estimadas baseadas em consumo médio por m² para estrutura completa
     // Ajuste conforme necessário se houver fórmulas exatas fornecidas além da chapa
@@ -87,15 +87,15 @@ export function calcularGesso(area, precos) {
             nome: 'Gypsum Corner bit',
             quantidade: cornerBead,
             unidade: 'unidade',
-            preco_unitario: precos['Corner Bead'] || 180,
-            total: cornerBead * (precos['Corner Bead'] || 180)
+            preco_unitario: precos['Corner Bead'] || 260,
+            total: cornerBead * (precos['Corner Bead'] || 260)
         },
         {
             nome: '1000 pcs Gypsum Dry Wall (Caixa parafuso 0,25)',
             quantidade: parafusosCaixa,
             unidade: 'caixa',
-            preco_unitario: precos['1000 pcs Dry Wall'] || 850,
-            total: parafusosCaixa * (precos['1000 pcs Dry Wall'] || 850)
+            preco_unitario: precos['1000 pcs Dry Wall'] || 1100,
+            total: parafusosCaixa * (precos['1000 pcs Dry Wall'] || 1100)
         },
         {
             nome: 'Gypsum Drywall Screw (Unid parafuso 9/5)',
@@ -122,22 +122,22 @@ export function calcularGesso(area, precos) {
             nome: 'Gypsum Main Channel pentes',
             quantidade: mainChannel,
             unidade: 'unidade',
-            preco_unitario: precos['Main Channel'] || 300,
-            total: mainChannel * (precos['Main Channel'] || 300)
+            preco_unitario: precos['Main Channel'] || 350,
+            total: mainChannel * (precos['Main Channel'] || 350)
         },
         {
             nome: 'Gypsum Fiber Glass Tape fita redes',
             quantidade: fiberTape,
             unidade: 'rolo',
-            preco_unitario: precos['Fiber Glass Tape'] || 400,
-            total: fiberTape * (precos['Fiber Glass Tape'] || 400)
+            preco_unitario: precos['Fiber Glass Tape'] || 450,
+            total: fiberTape * (precos['Fiber Glass Tape'] || 450)
         },
         {
             nome: 'Massa de Barramento (Gesso Fino 25kg)',
             quantidade: massaBarramento,
             unidade: 'saco',
-            preco_unitario: precos['Massa Barramento'] || 350,
-            total: massaBarramento * (precos['Massa Barramento'] || 350)
+            preco_unitario: precos['Massa Barramento'] || 1220,
+            total: massaBarramento * (precos['Massa Barramento'] || 1220)
         }
     ];
 
@@ -156,7 +156,7 @@ export function calcularGesso(area, precos) {
             'Cálculo baseado na área total informada',
             'Quantidades estimadas para estrutura padrão',
             '1 saco de Gesso Fino 25kg cobre 15m²',
-            'Valores de mão de obra: 250 MT/m²'
+            'Valores de mão de obra: 450 MT/m²'
         ]
     };
 }
