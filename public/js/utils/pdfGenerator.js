@@ -153,7 +153,7 @@ function drawFooterBar(doc, pw, ph, pageNum, totalPages, copyType) {
     doc.setFontSize(6);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.gray);
-    doc.text('Tecto Falso Saba\u00F3  \u2022  http://www.tectofalsosabao.co.mz  \u2022  contato@tectofalsosabao.co.mz  \u2022  +258 87 029 6633 / 84 420 0152', pw / 2, footerY + 7, { align: 'center' });
+    doc.text('Tecto Falso Saba\u00F3  \u2022  https://tectofalsosabao.vercel.app  \u2022  contato@tectofalsosabao.co.mz  \u2022  +258 87 029 6633 / 84 420 0152', pw / 2, footerY + 7, { align: 'center' });
 
     const viaText = copyType === 'empresa' ? 'VIA EMPRESA' : 'VIA CLIENTE';
     doc.setFontSize(6);
