@@ -135,6 +135,11 @@ export default async function contatoPage() {
                 <div class="ct-social-icon ig">📷</div>
                 <span class="ct-social-name">Instagram</span>
               </a>
+
+              <a href="https://www.tiktok.com/@josejaimesabaob" target="_blank" rel="noopener" class="ct-social-row">
+                <div class="ct-social-icon tt">♪</div>
+                <span class="ct-social-name">TikTok</span>
+              </a>
             </div>
           </div>
         </div>

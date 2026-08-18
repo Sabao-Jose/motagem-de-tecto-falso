@@ -533,14 +533,19 @@ export default async function portfolioPage() {
         const prog = createProgressBar(document.getElementById('uploadProgressContainer'));
         let emUpload = false;
 
-        // Ficheiros grandes (>4MB) vão direto ao Blob pelo browser para
-        // não ultrapassarem o limite de body da função serverless no Vercel.
-        // Em desenvolvimento local (sem Blob) usa o fluxo normal.
-        if (arquivo && arquivo.size > DIRECT_UPLOAD_MIN && await isDirectUploadAvailable()) {
+        // Detectar se é vídeo
+        const isVideo = arquivo && (arquivo.type.startsWith('video/') || 
+          ['mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'ogg'].includes((arquivo.name.split('.').pop() || '').toLowerCase()));
+
+        // 1. Vídeos E ficheiros grandes (>4MB): upload direto ao Blob pelo browser
+        //    (contorna o limite de ~4.5MB do Vercel Hobby)
+        // 2. Ficheiros pequenos normais: upload via servidor (multer)
+        if (arquivo && isDirectUploadAvailable() && (isVideo || arquivo.size > DIRECT_UPLOAD_MIN)) {
           emUpload = true;
-          prog.show('A enviar ficheiro para o armazenamento...');
+          const isVid = isVideo ? 'vídeo' : 'ficheiro';
+          prog.show(`A enviar ${isVid} para o armazenamento...`);
           const url = await uploadFileToBlob(arquivo, 'portfolio', (pct) => {
-            prog.set(pct, `A enviar ficheiro para o armazenamento... ${pct}%`);
+            prog.set(pct, `A enviar ${isVid} para o armazenamento... ${pct}%`);
           });
           const ext = (arquivo.name.split('.').pop() || '').toLowerCase();
           const payload = {
@@ -555,19 +560,36 @@ export default async function portfolioPage() {
           }
           prog.set(95, 'A registar o projecto no servidor...');
           await api.post('/portfolio', payload);
+        } else if (arquivo && isVideo) {
+          // Vídeo mas Blob não disponível: informar o utilizador
+          throw new Error('Vídeos grandes precisam de upload directo. Por favor, use uma ligação de Internet estável ou reduza o tamanho do vídeo (máx 4MB).');
         } else if (arquivo) {
+          // Imagem pequena: upload normal via multer
           emUpload = true;
           prog.show('A carregar projecto...');
           await api.uploadFile('/portfolio', formData, 'POST', (pct) => {
             prog.set(pct, `A carregar projecto... ${pct}%`);
           });
+        } else {
+          // Sem arquivo: enviar como JSON directo
+          prog.show('A registar projecto...');
+          await api.post('/portfolio', {
+            titulo: document.getElementById('titulo').value,
+            descricao: document.getElementById('descricao').value,
+            tipo_servico: document.getElementById('tipo_servico').value
+          });
+          emUpload = true;
         }
         if (emUpload) prog.done('Projecto carregado com sucesso!');
         showSuccess('Projecto adicionado com sucesso!');
         if (emUpload) setTimeout(() => prog.hide(), 1500);
+        // Limpar formulário e recarregar a página
+        form.reset();
+        setTimeout(() => portfolioPage(), 1000);
       } catch (error) {
         console.error('Error uploading:', error);
-        showError('Erro ao adicionar projeto');
+        const msg = error.message || 'Erro ao adicionar projeto';
+        showError(msg);
       }
     });
   }

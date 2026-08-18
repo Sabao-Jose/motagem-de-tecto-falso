@@ -3977,6 +3977,7 @@ body.page-login .footer {
 .ct-social-icon.fb { background: #1877F2; }
 .ct-social-icon.wa { background: #25D366; }
 .ct-social-icon.ig { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+.ct-social-icon.tt { background: #010101; }
 .ct-social-name {
   font-weight: 700;
   color: var(--dark-700);

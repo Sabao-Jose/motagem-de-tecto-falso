@@ -84,14 +84,24 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: MAX_FILE_SIZE },
     fileFilter: (req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mov|mkv|webm|pdf/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
+        // Extensões permitidas
+        const allowedExts = ['.jpeg', '.jpg', '.png', '.gif', '.webp', '.mp4', '.avi', '.mov', '.mkv', '.webm', '.3gp', '.ogg', '.pdf'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        const extOk = allowedExts.includes(ext);
 
-        if (mimetype && extname) {
+        // MIME types permitidos (inclui todos os tipos de vídeo e imagem comuns)
+        const allowedMimes = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+            'video/mp4', 'video/avi', 'video/x-msvideo', 'video/quicktime',
+            'video/x-matroska', 'video/webm', 'video/ogg', 'video/3gpp',
+            'application/pdf'
+        ];
+        const mimeOk = allowedMimes.includes(file.mimetype) || file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
+
+        if (extOk && mimeOk) {
             return cb(null, true);
         } else {
-            cb(new Error('Erro: Apenas imagens, vídeos e PDFs são permitidos!'));
+            cb(new Error(`Tipo de ficheiro não permitido: ${ext} (${file.mimetype})`));
         }
     }
 });

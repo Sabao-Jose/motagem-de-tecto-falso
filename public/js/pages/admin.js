@@ -189,12 +189,16 @@ export default async function adminPage() {
                     <div>
                         <h2 class="table-toolbar-title">📋 Utilizadores <span class="table-toolbar-count">${usuarios.length} registos</span></h2>
                     </div>
-                    <input type="text" id="searchUsuarios" class="table-toolbar-search" placeholder="🔍 Pesquisar por nome...">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="btnApagarSelecionadosUsuarios" class="btn btn-sm" style="background: #ef4444; color: white; display: none; white-space: nowrap;">🗑️ Apagar Selecionados (<span id="countSelecionadosUsuarios">0</span>)</button>
+                        <input type="text" id="searchUsuarios" class="table-toolbar-search" placeholder="🔍 Pesquisar por nome...">
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="table" id="tableUsuarios">
                         <thead>
                             <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllUsuarios" style="width: 18px; height: 18px; cursor: pointer;"></th>
                                 <th>Nome</th>
                                 <th>Email</th>
                                 <th>Role</th>
@@ -205,6 +209,7 @@ export default async function adminPage() {
                         <tbody>
                             ${usuarios.length > 0 ? usuarios.map(u => `
                                 <tr>
+                                    <td style="text-align: center;"><input type="checkbox" class="checkbox-selecionar checkbox-usuario" data-id="${u.id}" style="width: 18px; height: 18px; cursor: pointer;"></td>
                                     <td class="cell-name">${u.nome}</td>
                                     <td class="cell-email">${u.email}</td>
                                     <td>
@@ -224,7 +229,7 @@ export default async function adminPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            `).join('') : `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">Nenhum utilizador encontrado</div></div></td></tr>`}
+                            `).join('') : `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">Nenhum utilizador encontrado</div></div></td></tr>`}
                         </tbody>
                     </table>
                 </div>
@@ -416,12 +421,16 @@ export default async function adminPage() {
                     <div>
                         <h2 class="table-toolbar-title">✅ Clientes <span class="table-toolbar-count">${clientesLista.length} registos</span></h2>
                     </div>
-                    <input type="text" id="searchClientes" class="table-toolbar-search" placeholder="🔍 Pesquisar por nome...">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="btnApagarSelecionadosClientes" class="btn btn-sm" style="background: #ef4444; color: white; display: none; white-space: nowrap;">🗑️ Apagar Selecionados (<span id="countSelecionadosClientes">0</span>)</button>
+                        <input type="text" id="searchClientes" class="table-toolbar-search" placeholder="🔍 Pesquisar por nome...">
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="table" id="tableClientes">
                         <thead>
                             <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllClientes" style="width: 18px; height: 18px; cursor: pointer;"></th>
                                 <th>Nome</th>
                                 <th>Email</th>
                                 <th>Telefone</th>
@@ -433,6 +442,7 @@ export default async function adminPage() {
                         <tbody>
                             ${clientesLista.length > 0 ? clientesLista.map(c => `
                                 <tr>
+                                    <td style="text-align: center;"><input type="checkbox" class="checkbox-selecionar checkbox-cliente" data-id="${c.id}" style="width: 18px; height: 18px; cursor: pointer;"></td>
                                     <td class="cell-name">${c.nome}</td>
                                     <td class="cell-email">${c.email || '-'}</td>
                                     <td class="cell-email">${c.telefone || '-'}</td>
@@ -450,7 +460,7 @@ export default async function adminPage() {
                                         <button class="btn-delete-cliente btn-sm" data-user-id="${c.id}" style="background: #ef4444; color: white; border: none; margin-left: 0.25rem;">🗑️</button>
                                     </td>
                                 </tr>
-                            `).join('') : `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-text">Nenhum cliente encontrado</div></div></td></tr>`}
+                            `).join('') : `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-text">Nenhum cliente encontrado</div></div></td></tr>`}
                         </tbody>
                     </table>
                 </div>
@@ -462,11 +472,15 @@ export default async function adminPage() {
                     <div>
                         <h2 class="table-toolbar-title">⭐ Clientes Satisfeitos <span class="table-toolbar-count">${clientesSatisfeitos.length} registos</span></h2>
                     </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="btnApagarSelecionadosSatisfeitos" class="btn btn-sm" style="background: #ef4444; color: white; display: none; white-space: nowrap;">🗑️ Apagar Selecionados (<span id="countSelecionadosSatisfeitos">0</span>)</button>
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="table" id="tableClientesSatisfeitos">
                         <thead>
                             <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllSatisfeitos" style="width: 18px; height: 18px; cursor: pointer;"></th>
                                 <th>Nome</th>
                                 <th>Email</th>
                                 <th>Telefone</th>
@@ -476,6 +490,7 @@ export default async function adminPage() {
                         <tbody>
                             ${clientesSatisfeitos.length > 0 ? clientesSatisfeitos.map(c => `
                                 <tr>
+                                    <td style="text-align: center;"><input type="checkbox" class="checkbox-selecionar checkbox-satisfeito" data-id="${c.id}" style="width: 18px; height: 18px; cursor: pointer;"></td>
                                     <td class="cell-name">${c.nome}</td>
                                     <td class="cell-email">${c.email || '-'}</td>
                                     <td class="cell-email">${c.telefone || '-'}</td>
@@ -483,7 +498,7 @@ export default async function adminPage() {
                                         <button class="btn-delete-cliente-satisfeito btn-sm" data-cliente-id="${c.id}" style="background: #ef4444; color: white; border: none;">🗑️</button>
                                     </td>
                                 </tr>
-                            `).join('') : `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">⭐</div><div class="empty-state-text">Nenhum cliente satisfeito registado</div></div></td></tr>`}
+                            `).join('') : `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⭐</div><div class="empty-state-text">Nenhum cliente satisfeito registado</div></div></td></tr>`}
                         </tbody>
                     </table>
                 </div>
@@ -543,14 +558,23 @@ export default async function adminPage() {
                     <div>
                         <h2 class="table-toolbar-title">📬 Mensagens de Contacto <span class="table-toolbar-count">${mensagens.length} mensagens · ${mensagensNaoLidas} não lidas</span></h2>
                     </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="btnApagarSelecionadasMsgs" class="btn btn-sm" style="background: #ef4444; color: white; display: none; white-space: nowrap;">🗑️ Apagar Selecionadas (<span id="countSelecionadasMsgs">0</span>)</button>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">
+                            <input type="checkbox" id="selectAllMsgs" style="width: 18px; height: 18px; cursor: pointer;"> Selecionar Todas
+                        </label>
+                    </div>
                 </div>
                 ${mensagens.length > 0 ? mensagens.map(m => `
-                    <div style="border: 1px solid var(--light); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; ${!m.lido ? 'border-left: 4px solid var(--primary); background: rgba(99,102,241,0.03);' : ''}">
+                    <div style="border: 1px solid var(--light); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; ${!m.lido ? 'border-left: 4px solid var(--primary); background: rgba(99,102,241,0.03);' : ''}" class="msg-card" data-msg-id="${m.id}">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-                            <div>
-                                <strong style="font-size: 1.05rem;">${m.nome}</strong>
-                                <span style="color: var(--gray); font-size: 0.85rem; margin-left: 0.75rem;">${m.email}</span>
-                                <span style="color: var(--gray); font-size: 0.85rem; margin-left: 0.75rem;">${m.telefone}</span>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" class="checkbox-selecionar checkbox-msg" data-id="${m.id}" style="width: 18px; height: 18px; cursor: pointer;">
+                                <div>
+                                    <strong style="font-size: 1.05rem;">${m.nome}</strong>
+                                    <span style="color: var(--gray); font-size: 0.85rem; margin-left: 0.75rem;">${m.email}</span>
+                                    <span style="color: var(--gray); font-size: 0.85rem; margin-left: 0.75rem;">${m.telefone}</span>
+                                </div>
                             </div>
                             <div class="table-actions">
                                 <span class="badge ${m.assunto === 'Orçamento' ? 'badge-primary' : m.assunto === 'Reclamação' ? 'badge-danger' : m.assunto === 'Dúvida' ? 'badge-warning' : 'badge-success'}">${m.assunto}</span>
@@ -686,10 +710,19 @@ export default async function adminPage() {
                     <div>
                         <h2 class="table-toolbar-title">📸 Portfólio <span class="table-toolbar-count">${portfolioItems.length} projectos</span></h2>
                     </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="btnApagarSelecionadosPortfolio" class="btn btn-sm" style="background: #ef4444; color: white; display: none; white-space: nowrap;">🗑️ Apagar Selecionados (<span id="countSelecionadosPortfolio">0</span>)</button>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">
+                            <input type="checkbox" id="selectAllPortfolio" style="width: 18px; height: 18px; cursor: pointer;"> Selecionar Todos
+                        </label>
+                    </div>
                 </div>
                 <div id="portfolioAdminGrid" class="grid grid-3">
                     ${portfolioItems.length > 0 ? portfolioItems.map(item => `
                         <div class="card" style="position: relative;">
+                            <div style="position: absolute; top: 0.5rem; left: 0.5rem; z-index: 2;">
+                                <input type="checkbox" class="checkbox-selecionar checkbox-portfolio" data-id="${item.id}" style="width: 20px; height: 20px; cursor: pointer; background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">
+                            </div>
                             ${item.imagem_url ? `
                                 <img src="${item.imagem_url}" alt="${item.titulo}" style="width: 100%; height: 180px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: 0.75rem;">
                             ` : item.video_url ? `
@@ -759,14 +792,23 @@ export default async function adminPage() {
                     <div>
                         <h2 class="table-toolbar-title">📨 Pedidos de Portfólio <span class="table-toolbar-count">${pedidosPortfolio.length} pedidos · ${pedidosPortfolio.filter(p => p.status === 'pendente').length} pendentes</span></h2>
                     </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="btnApagarSelecionadosPedidos" class="btn btn-sm" style="background: #ef4444; color: white; display: none; white-space: nowrap;">🗑️ Apagar Selecionados (<span id="countSelecionadosPedidos">0</span>)</button>
+                        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">
+                            <input type="checkbox" id="selectAllPedidos" style="width: 18px; height: 18px; cursor: pointer;"> Selecionar Todos
+                        </label>
+                    </div>
                 </div>
                 ${pedidosPortfolio.length > 0 ? pedidosPortfolio.map(p => `
-                    <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${p.status === 'pendente' ? '#ef4444' : p.status === 'visto' ? '#f59e0b' : '#10b981'};">
+                    <div class="card pedido-card" style="margin-bottom: 1rem; border-left: 4px solid ${p.status === 'pendente' ? '#ef4444' : p.status === 'visto' ? '#f59e0b' : '#10b981'};" data-pedido-id="${p.id}">
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                            <!-- Preview clicável -->
-                            <div class="pedido-preview" data-pedido-id="${p.id}" data-pedido-titulo="${(p.portfolio_titulo || '').replace(/"/g, '&quot;')}" data-pedido-imagem="${(p.portfolio_imagem || '').replace(/"/g, '&quot;')}" data-pedido-video="${(p.portfolio_video || '').replace(/"/g, '&quot;')}" style="width: 110px; height: 80px; border-radius: var(--radius-lg); overflow: hidden; flex-shrink: 0; background: var(--light); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; position: relative;" title="Clique para ver em tamanho real">
+                            <!-- Checkbox + Preview clicável -->
+                            <div style="display: flex; align-items: flex-start; gap: 0.5rem; flex-shrink: 0;">
+                                <input type="checkbox" class="checkbox-selecionar checkbox-pedido" data-id="${p.id}" style="width: 20px; height: 20px; cursor: pointer; margin-top: 0.25rem; flex-shrink: 0;">
+                                <div class="pedido-preview" data-pedido-id="${p.id}" data-pedido-titulo="${(p.portfolio_titulo || '').replace(/"/g, '&quot;')}" data-pedido-imagem="${(p.portfolio_imagem || '').replace(/"/g, '&quot;')}" data-pedido-video="${(p.portfolio_video || '').replace(/"/g, '&quot;')}" style="width: 110px; height: 80px; border-radius: var(--radius-lg); overflow: hidden; flex-shrink: 0; background: var(--light); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; position: relative;" title="Clique para ver em tamanho real">
                                 ${p.portfolio_imagem ? `<img src="${p.portfolio_imagem}" alt="preview" style="width: 100%; height: 100%; object-fit: cover;">` : p.portfolio_video ? `<video src="${p.portfolio_video}" style="width: 100%; height: 100%; object-fit: cover;" muted></video>` : '<span style="font-size: 2rem;">🏗️</span>'}
                                 <span style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; font-size: 0.6rem; padding: 1px 4px; border-radius: 4px;">🔍</span>
+                            </div>
                             </div>
                             <!-- Info -->
                             <div style="flex: 1; min-width: 200px;">
@@ -1324,6 +1366,10 @@ export default async function adminPage() {
                 <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid white; border-radius: 3px; background: white; flex-shrink: 0;">                <span style="display: block; width: 8px; height: 8px; margin: 1px; background: #ef4444; border-radius: 1px;"></span></span>
                 Despesas da Empresa
               </button>
+              <button id="btnToggleLucro" onclick="toggleSerieAdmin(3)" style="display: flex; align-items: center; gap: 0.35rem; background: #7c3aed; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.75rem; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+                <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid white; border-radius: 3px; background: white; flex-shrink: 0;"><span style="display: block; width: 8px; height: 8px; margin: 1px; background: #7c3aed; border-radius: 1px;"></span></span>
+                Lucro (2%–10%)
+              </button>
             </div>
           </div>
           <div style="position: relative; height: 320px;">
@@ -1353,8 +1399,9 @@ export default async function adminPage() {
               <div id="adminRelTotalGerado" style="font-size: 1rem; font-weight: 800; color: #16a34a; margin-top: 0.3rem;">—</div>
             </div>
             <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 0.85rem 0.6rem; text-align: center;">
-              <div style="font-size: 0.7rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">📈 Lucro da Empresa</div>
+              <div style="font-size: 0.7rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">📈 Lucro da Empresa (2%–10%)</div>
               <div id="adminRelLucro" style="font-size: 1rem; font-weight: 800; color: #7c3aed; margin-top: 0.3rem;">—</div>
+              <div id="adminRelLucroDetalhe" style="font-size: 0.65rem; color: #9ca3af; margin-top: 0.15rem;">Calculado por serviço</div>
             </div>
           </div>
         </div>
@@ -2235,7 +2282,7 @@ export default async function adminPage() {
     let dadosFiltradosAdmin = [];
     let periodoAtualAdmin = 'anual';
     let datasManuaisAdmin = false; // true quando o admin escolhe datas manualmente
-    const seriesVisiveisAdmin = [true, true, true]; // [previstas, recebidas, despesas]
+    const seriesVisiveisAdmin = [true, true, true, true]; // [previstas, recebidas, despesas, lucro]
 
     // Inicializa datas padrão (ano atual)
     (function initAdminRelDatas() {
@@ -2360,8 +2407,8 @@ export default async function adminPage() {
         ds.hidden = !seriesVisiveisAdmin[idx];
         relatorioChartAdmin.update();
 
-        const btns = ['btnToggleReceitasPrevistas', 'btnToggleReceitasRecebidas', 'btnToggleDespesas'];
-        const cores = ['#3b82f6', '#10b981', '#ef4444'];
+        const btns = ['btnToggleReceitasPrevistas', 'btnToggleReceitasRecebidas', 'btnToggleDespesas', 'btnToggleLucro'];
+        const cores = ['#3b82f6', '#10b981', '#ef4444', '#7c3aed'];
         const btn = document.getElementById(btns[idx]);
         if (btn) {
             btn.style.opacity = seriesVisiveisAdmin[idx] ? '1' : '0.45';
@@ -2435,24 +2482,29 @@ export default async function adminPage() {
         }
 
         // Agrega os valores por período
-        const mapaP = {}, mapaR = {}, mapaD = {};
-        buckets.forEach(b => { mapaP[b.label] = 0; mapaR[b.label] = 0; mapaD[b.label] = 0; });
+        const mapaP = {}, mapaR = {}, mapaD = {}, mapaL = {};
+        buckets.forEach(b => { mapaP[b.label] = 0; mapaR[b.label] = 0; mapaD[b.label] = 0; mapaL[b.label] = 0; });
 
         dados.forEach(s => {
             const d = new Date(s.data_servico || s.created_at);
             const bucket = buckets.find(b => d >= b.inicio && d < b.fim);
             if (!bucket) return;
             const chave = bucket.label;
+            const valor = s.valor_total || 0;
 
             // Receitas Previstas = valor total gerado
-            mapaP[chave] += (s.valor_total || 0);
+            mapaP[chave] += valor;
 
             // Receitas Recebidas = apenas pagos
-            if (s.pago == 1 || s.status === 'pago') mapaR[chave] += (s.valor_total || 0);
+            if (s.pago == 1 || s.status === 'pago') mapaR[chave] += valor;
 
             // Despesas da Empresa = materiais ou mão de obra (conforme centro de custo)
             if (!centro || centro === 'materiais') mapaD[chave] += (s.valor_materiais || 0);
             if (!centro || centro === 'mao_obra') mapaD[chave] += (s.valor_mao_obra || 0);
+
+            // Lucro da Empresa (2% a 10% progressivo)
+            const percentualLucro = calcularPercentualLucro(valor);
+            mapaL[chave] += valor * (percentualLucro / 100);
         });
 
         const labels = buckets.map(b => b.label);
@@ -2492,6 +2544,15 @@ export default async function adminPage() {
                         borderWidth: 0,
                         borderRadius: 3,
                         hidden: !seriesVisiveisAdmin[2]
+                    },
+                    {
+                        label: 'Lucro da Empresa',
+                        data: labels.map(l => mapaL[l] || 0),
+                        backgroundColor: 'rgba(124, 58, 237, 0.85)',
+                        borderColor: '#7c3aed',
+                        borderWidth: 0,
+                        borderRadius: 3,
+                        hidden: false
                     }
                 ]
             },
@@ -2528,11 +2589,29 @@ export default async function adminPage() {
         atualizarResumoFinanceiro(dados, centro);
     }
 
+    // ==================== CÁLCULO DE LUCRO PROGRESSIVO (2% a 10%) ====================
+    // Percentagem de lucro baseada no valor do serviço:
+    // - Valores baixos → 2%
+    // - Valores altos → até 10%
+    function calcularPercentualLucro(valor) {
+        // Escala: 0 MT → 2%, 250.000+ MT → 10%
+        // Fórmula linear: percentual = 2 + (valor / 250000) * 8
+        const percentual = 2 + (valor / 250000) * 8;
+        return Math.min(10, Math.max(2, percentual));
+    }
+
+    // Tabela de referência das percentagens
+    function getLabelPercentual(valor) {
+        const pct = calcularPercentualLucro(valor);
+        return `${pct.toFixed(1)}%`;
+    }
+
     function atualizarResumoFinanceiro(dados, centro) {
         let totalRecebido = 0;
         let totalPendente = 0;
         let totalDespesas = 0;
         let totalGerado = 0;
+        let totalLucro = 0;
 
         dados.forEach(s => {
             const valor = s.valor_total || 0;
@@ -2543,9 +2622,11 @@ export default async function adminPage() {
 
             if (!centro || centro === 'materiais') totalDespesas += (s.valor_materiais || 0);
             if (!centro || centro === 'mao_obra') totalDespesas += (s.valor_mao_obra || 0);
-        });
 
-        const lucro = totalGerado - totalDespesas;
+            // Calcular lucro com percentagem progressiva
+            const percentualLucro = calcularPercentualLucro(valor);
+            totalLucro += valor * (percentualLucro / 100);
+        });
 
         const definir = (id, valor) => {
             const el = document.getElementById(id);
@@ -2559,8 +2640,23 @@ export default async function adminPage() {
 
         const lucroEl = document.getElementById('adminRelLucro');
         if (lucroEl) {
-            lucroEl.textContent = formatCurrency(lucro);
-            lucroEl.style.color = lucro >= 0 ? '#16a34a' : '#dc2626';
+            lucroEl.textContent = formatCurrency(totalLucro);
+            lucroEl.style.color = totalLucro >= 0 ? '#16a34a' : '#dc2626';
+        }
+
+        // Mostrar detalhes da percentagem utilizada
+        const detalheLucroEl = document.getElementById('adminRelLucroDetalhe');
+        if (detalheLucroEl) {
+            if (dados.length > 0) {
+                const valores = dados.map(s => s.valor_total || 0);
+                const menorValor = Math.min(...valores);
+                const maiorValor = Math.max(...valores);
+                const pctMin = calcularPercentualLucro(menorValor);
+                const pctMax = calcularPercentualLucro(maiorValor);
+                detalheLucroEl.textContent = `Faixa: ${pctMin.toFixed(1)}% a ${pctMax.toFixed(1)}% (${dados.length} serviços)`;
+            } else {
+                detalheLucroEl.textContent = 'Sem dados';
+            }
         }
     }
 
@@ -4265,5 +4361,108 @@ export default async function adminPage() {
         });
         preview.addEventListener('mouseenter', () => { preview.style.transform = 'scale(1.05)'; });
         preview.addEventListener('mouseleave', () => { preview.style.transform = 'scale(1)'; });
+    });
+
+    // ==================== SELEÇÃO EM LOTE (SELECT ALL + DELETE) ====================
+    // Função genérica para configurar seleção em lote
+    function configurarSelecaoLote({ selectAllId, checkboxClass, btnApagarId, countId, deleteEndpoint, onDeleted }) {
+        const selectAll = document.getElementById(selectAllId);
+        const btnApagar = document.getElementById(btnApagarId);
+        const countSpan = document.getElementById(countId);
+
+        if (!selectAll) return;
+
+        function atualizarContador() {
+            const checks = document.querySelectorAll(`.${checkboxClass}:checked`);
+            const count = checks.length;
+            if (countSpan) countSpan.textContent = count;
+            if (btnApagar) btnApagar.style.display = count > 0 ? 'inline-flex' : 'none';
+        }
+
+        selectAll.addEventListener('change', () => {
+            document.querySelectorAll(`.${checkboxClass}`).forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            atualizarContador();
+        });
+
+        document.querySelectorAll(`.${checkboxClass}`).forEach(cb => {
+            cb.addEventListener('change', atualizarContador);
+        });
+
+        if (btnApagar) {
+            btnApagar.addEventListener('click', async () => {
+                const checks = document.querySelectorAll(`.${checkboxClass}:checked`);
+                const ids = Array.from(checks).map(cb => cb.dataset.id);
+                if (ids.length === 0) return;
+
+                if (!confirm(`⚠️ Tem a certeza que deseja apagar ${ids.length} item(s)?\n\nEsta ação NÃO pode ser revertida!`)) return;
+
+                try {
+                    for (const id of ids) {
+                        await api.delete(`${deleteEndpoint}/${id}`);
+                    }
+                    showSuccess(`${ids.length} item(s) apagado(s) com sucesso!`);
+                    if (onDeleted) onDeleted();
+                    else adminPage();
+                } catch (error) {
+                    showError('Erro ao apagar: ' + (error.message || 'Erro desconhecido'));
+                }
+            });
+        }
+    }
+
+    // Utilizadores
+    configurarSelecaoLote({
+        selectAllId: 'selectAllUsuarios',
+        checkboxClass: 'checkbox-usuario',
+        btnApagarId: 'btnApagarSelecionadosUsuarios',
+        countId: 'countSelecionadosUsuarios',
+        deleteEndpoint: '/usuarios'
+    });
+
+    // Clientes
+    configurarSelecaoLote({
+        selectAllId: 'selectAllClientes',
+        checkboxClass: 'checkbox-cliente',
+        btnApagarId: 'btnApagarSelecionadosClientes',
+        countId: 'countSelecionadosClientes',
+        deleteEndpoint: '/usuarios'
+    });
+
+    // Clientes Satisfeitos
+    configurarSelecaoLote({
+        selectAllId: 'selectAllSatisfeitos',
+        checkboxClass: 'checkbox-satisfeito',
+        btnApagarId: 'btnApagarSelecionadosSatisfeitos',
+        countId: 'countSelecionadosSatisfeitos',
+        deleteEndpoint: '/clientes'
+    });
+
+    // Mensagens
+    configurarSelecaoLote({
+        selectAllId: 'selectAllMsgs',
+        checkboxClass: 'checkbox-msg',
+        btnApagarId: 'btnApagarSelecionadasMsgs',
+        countId: 'countSelecionadasMsgs',
+        deleteEndpoint: '/contact'
+    });
+
+    // Portfólio
+    configurarSelecaoLote({
+        selectAllId: 'selectAllPortfolio',
+        checkboxClass: 'checkbox-portfolio',
+        btnApagarId: 'btnApagarSelecionadosPortfolio',
+        countId: 'countSelecionadosPortfolio',
+        deleteEndpoint: '/portfolio'
+    });
+
+    // Pedidos
+    configurarSelecaoLote({
+        selectAllId: 'selectAllPedidos',
+        checkboxClass: 'checkbox-pedido',
+        btnApagarId: 'btnApagarSelecionadosPedidos',
+        countId: 'countSelecionadosPedidos',
+        deleteEndpoint: '/pedidos-portfolio'
     });
 }
