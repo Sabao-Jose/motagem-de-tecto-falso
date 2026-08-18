@@ -2,6 +2,7 @@ import { render, api, formatCurrency, showSuccess, showError } from '../app.js';
 import { calcularGesso } from '../calculators/gesso.js';
 import { calcularPVC } from '../calculators/pvc.js';
 import { calcularModular } from '../calculators/modular.js';
+import { calcularParede } from '../calculators/parede.js';
 import { gerarReciboPDF } from '../utils/pdfGenerator.js';
 
 export default async function calculadoraPage() {
@@ -144,6 +145,32 @@ export default async function calculadoraPage() {
       </form>
 
       <div id="gesso-massa-resultado" style="display: none; margin-top: 2rem;"></div>
+    </div>
+
+    <!-- Divisão de Paredes Calculator -->
+    <div class="card" style="margin-top: 2.5rem; border: 2px solid #dcfce7; background: linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(5,150,105,0.04) 100%);">
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+        <span style="font-size: 2rem;">🧱</span>
+        <div>
+          <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; color: var(--secondary);">Divisão de Paredes</h2>
+        </div>
+      </div>
+
+      <form id="paredeForm" style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+          <label class="form-label" style="font-weight: 700;">📐 Altura da Parede (m)</label>
+          <input type="number" class="form-input" id="parede-altura" step="0.01" min="0.1" required placeholder="Ex: 3.00" value="3.00">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+          <label class="form-label" style="font-weight: 700;">📏 Comprimento da Parede (m)</label>
+          <input type="number" class="form-input" id="parede-comprimento" step="0.01" min="0.1" required placeholder="Ex: 6.00" value="6.00">
+        </div>
+        <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem; white-space: nowrap; flex-shrink: 0; background: var(--secondary);">
+          🔢 Calcular Materiais
+        </button>
+      </form>
+
+      <div id="parede-resultado" style="display: none; margin-top: 2rem;"></div>
     </div>
 
     <!-- Save Budget Modal -->
@@ -306,6 +333,18 @@ export default async function calculadoraPage() {
       });
     }
   }
+
+  // Divisão de Paredes form
+  const paredeForm = document.getElementById('paredeForm');
+  if (paredeForm) {
+    paredeForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const altura = parseFloat(document.getElementById('parede-altura').value);
+      const comprimento = parseFloat(document.getElementById('parede-comprimento').value);
+      if (!altura || !comprimento || altura <= 0 || comprimento <= 0) return;
+      calcularDivisaoParede(altura, comprimento);
+    });
+  }
 }
 
 function calcularMassaGesso(area) {
@@ -449,6 +488,116 @@ function calcularMassaGesso(area) {
   container.style.display = 'block';
 }
 
+// ========== Calculadora de Divisão de Paredes ==========
+function calcularDivisaoParede(altura, comprimento) {
+  const resultado = calcularParede(altura, comprimento, window.currentPrecos?.parede || {});
+  
+  // Store for saving
+  window.currentCalculation = {
+    tipo: 'parede',
+    area: resultado.areaTotal,
+    materiais: resultado.materiais.map(m => ({ ...m })),
+    total_materiais: resultado.total_materiais,
+    mao_obra: resultado.mao_obra,
+    total_geral: resultado.total_geral
+  };
+
+  const container = document.getElementById('parede-resultado');
+  
+  container.innerHTML = `
+    <div style="background: var(--light); padding: 2rem; border-radius: var(--radius-lg);">
+      <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--secondary);">
+        🧱 Resultado - Divisão de Paredes
+      </h3>
+      <p style="color: var(--gray); margin-bottom: 1.5rem; font-size: 0.95rem;">
+        Gypsum Board Regular 1200x2400x12mm | Raias 3m | Espaçamento 60cm
+      </p>
+
+      <!-- Resumo das Dimensões -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="background: white; padding: 1rem; border-radius: var(--radius); border-left: 4px solid var(--secondary);">
+          <p style="margin: 0; font-size: 0.8rem; color: var(--gray);">Altura</p>
+          <p style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--secondary);">${altura.toFixed(2)} m</p>
+        </div>
+        <div style="background: white; padding: 1rem; border-radius: var(--radius); border-left: 4px solid var(--secondary);">
+          <p style="margin: 0; font-size: 0.8rem; color: var(--gray);">Comprimento</p>
+          <p style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--secondary);">${comprimento.toFixed(2)} m</p>
+        </div>
+        <div style="background: white; padding: 1rem; border-radius: var(--radius); border-left: 4px solid var(--primary);">
+          <p style="margin: 0; font-size: 0.8rem; color: var(--gray);">Área por lado</p>
+          <p style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--primary);">${resultado.detalhes.areaPorLado} m²</p>
+        </div>
+        <div style="background: white; padding: 1rem; border-radius: var(--radius); border-left: 4px solid var(--accent);">
+          <p style="margin: 0; font-size: 0.8rem; color: var(--gray);">Área Total (2 lados)</p>
+          <p style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--accent);">${resultado.detalhes.areaTotal} m²</p>
+        </div>
+      </div>
+
+      <!-- Esquema de Raias -->
+      <div style="background: white; padding: 1.25rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; border: 1px solid #d1d5db;">
+        <h4 style="font-weight: 700; margin-bottom: 0.75rem; color: var(--secondary);">📐 Esquema de Raias (Espaçamento 60cm)</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; font-size: 0.9rem;">
+          <div>📍 Raias por lado: <strong>${resultado.detalhes.raiasPorLado}</strong></div>
+          <div>📏 Total de raias: <strong>${resultado.materiais.find(m => m.nome.includes('Raia'))?.quantidade || 'N/A'}</strong></div>
+          <div>📄 Chapas por lado: <strong>${resultado.detalhes.chapasPorLado}</strong></div>
+          <div>➕ Margem de corte: <strong>${resultado.detalhes.margem}</strong></div>
+        </div>
+      </div>
+
+      <!-- Lista de Materiais -->
+      <h4 style="font-weight: 600; margin-bottom: 1rem;">📦 Lista de Materiais:</h4>
+      <div style="display: grid; gap: 0.75rem;">
+        ${resultado.materiais.map(m => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: white; border-radius: var(--radius); border-left: 4px solid var(--secondary);">
+            <div style="flex: 1;">
+              <div style="font-weight: 700; color: #1f2937;">${m.nome}</div>
+              <div style="font-size: 0.82rem; color: var(--gray);">${m.especificacao || ''}</div>
+            </div>
+            <div style="text-align: right; min-width: 120px;">
+              <div style="font-size: 1.1rem; font-weight: 800; color: var(--secondary);">${m.quantidade} ${m.unidade}</div>
+              <div style="font-size: 0.85rem; color: var(--gray);">${formatCurrency(m.total)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Resumo Financeiro -->
+      <div style="margin-top: 1.5rem; padding: 1.5rem; background: white; border-radius: var(--radius-lg); border: 2px solid #d1fae5;">
+        <h4 style="font-weight: 700; margin-bottom: 1rem; color: var(--secondary);">💰 Resumo Financeiro</h4>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
+          <span style="font-weight: 600;">Total Materiais:</span>
+          <span style="font-size: 1.25rem; font-weight: 700; color: var(--secondary);">${formatCurrency(resultado.total_materiais)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
+          <span style="font-weight: 600;">Mão de Obra (${resultado.areaTotal.toFixed(2)} m²):</span>
+          <span style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">${formatCurrency(resultado.mao_obra)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding-top: 0.75rem; border-top: 2px solid #d1fae5;">
+          <span style="font-size: 1.25rem; font-weight: 700;">TOTAL GERAL:</span>
+          <span style="font-size: 1.75rem; font-weight: 800; color: var(--accent);">${formatCurrency(resultado.total_geral)}</span>
+        </div>
+      </div>
+
+      <!-- Botões -->
+      <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button class="btn btn-primary" style="padding: 0.75rem 1.5rem; font-size: 1rem;" onclick="salvarOrcamentoParede()">
+          💾 Salvar Orçamento
+        </button>
+      </div>
+    </div>
+  `;
+  container.style.display = 'block';
+}
+
+window.salvarOrcamentoParede = function () {
+  const modal = document.getElementById('saveModal');
+  if (modal) {
+    modal.style.display = 'block';
+    const nomeInput = document.getElementById('cliente-nome');
+    if (nomeInput) nomeInput.focus();
+  }
+};
+
 // Global state for the current calculation
 window.currentCalculation = {
   tipo: null,
@@ -492,6 +641,13 @@ const SERVICOS_POR_TIPO = {
     'Barramentos de paredes',
     'Pinturas de paredes',
     'Acabamentos profissional'
+  ],
+  'parede': [
+    'Divisão de paredes com Gypsum Drywall',
+    'Barramento de paredes',
+    'Instalação elétrica',
+    'Isolamento acústico',
+    'Acabamento e pintura'
   ]
 };
 

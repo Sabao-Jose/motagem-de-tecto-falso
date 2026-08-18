@@ -31,8 +31,10 @@ export function calcularModular(area, precos) {
     const cantoneira = Math.ceil(area * 0.22);
 
     // 6. Gypsum Nylon Nail-in Anchor (Buchas)
-    // Para fixar perfis no teto/parede. ~2.5/m²
-    const buchas = Math.ceil(area * 2.5);
+    // Espaçamento padrão 20cm: cada 0,20m = 1 bucha por perfil
+    // Com perfis a cada 60cm, cada perfil de 3.6m precisa de 18 buchas (3.6m ÷ 0.20m)
+    // Total = (area / 1.8) × 18 = area × 10
+    const buchas = Math.ceil(area * 10);
 
     const materiais = [
         {

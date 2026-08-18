@@ -3,11 +3,13 @@
  * Atualizada conforme solicitação:
  * - Área base
  * - Chapa PVC: 490 MT
- * - Mão de obra: 300 MT/m²
+ * - Gypsum Furring Perfil: Espaçamento padrão 60cm
+ * - Mão de obra: 350 MT/m²
  */
 
 export function calcularPVC(area, precos) {
     const PRECO_MAO_OBRA_M2 = 350;
+    const ESPACAMENTO_FURRING = 0.60; // Espaçamento padrão 60cm
 
     // 1. PVC White 6mm*250mm*5.9m
     // Área da peça: 0.25 * 5.9 = 1.475 m²
@@ -15,25 +17,28 @@ export function calcularPVC(area, precos) {
 
     // 2. PVC T-White Calhas (Rodaforro/Moldura)
     // Perímetro estimado: 4 * sqrt(Area)
-    // Peças de 6m (comum para PVC) ou 4m? Vamos assumir 6m.
     const perimetroEst = 4 * Math.sqrt(area);
     const calhas = Math.ceil(perimetroEst / 5.9);
 
     // 3. Gypsum Furring Perfil (Estrutura metálica para PVC)
-    // Consumo similar ao gesso: Area * 1.2 (peças de 3m)
-    const furringPerfil = Math.ceil(area * 1.2);
+    // Espaçamento padrão 60cm: area / 1.8
+    const furringPerfil = Math.ceil(area / 1.8);
 
     // 4. 1000 pcs Gypsum Dry Wall (Parafusos para fixar PVC no metal)
-    // Consumo: ~20/m².
+    // Consumo: ~20/m²
     const parafusosCaixa = Math.ceil((area * 20) / 1000);
 
-    // 5. Gypsum Main Channel (Canaleta)
-    // Consumo: Area * 0.35
-    const mainChannel = Math.ceil(area * 0.35);
+    // 5. Gypsum Main Channel (Canaleta/Pente)
+    // Espaçamento padrão 1 metro: cada 1m = 1 Main Channel
+    // Peças de 3m, então cada peça cobre 3m de comprimento
+    // Total = area / 3
+    const mainChannel = Math.ceil(area / 3);
 
     // 6. Gypsum Nylon Nail-in Anchor (Buchas)
-    // Para fixar perfis no teto/parede. ~2.5/m²
-    const buchas = Math.ceil(area * 2.5);
+    // Espaçamento padrão 20cm: cada 0,20m = 1 bucha por perfil
+    // Com furring a cada 60cm, cada perfil de 3m precisa de 15 buchas (3m ÷ 0,20m)
+    // Total = (area / 1.8) × 15 = area × 8.33
+    const buchas = Math.ceil(area * 8.33);
 
     const materiais = [
         {
@@ -51,7 +56,7 @@ export function calcularPVC(area, precos) {
             total: calhas * (precos['PVC Calhas'] || 250)
         },
         {
-            nome: 'Gypsum Furring Perfil',
+            nome: 'Gypsum Furring Perfil (espaçamento 60cm)',
             quantidade: furringPerfil,
             unidade: 'unidade',
             preco_unitario: precos['Furring Perfil'] || 260,
@@ -100,8 +105,9 @@ export function calcularPVC(area, precos) {
         total_geral,
         observacoes: [
             'Cálculo baseado na área total informada',
+            'Espaçamento padrão Furring Perfil: 60cm',
             'Estrutura metálica considerada',
-            'Valores de mão de obra: 350 MT/m²'
+            'Mão de obra: 350 MT/m²'
         ]
     };
 }

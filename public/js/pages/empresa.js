@@ -25,10 +25,6 @@ export default async function empresaPage() {
           <h1 class="emp-hero-title">
             <span class="emp-brand-blue">Tecto Falso</span> <span class="emp-brand-red">Sabao</span>
           </h1>
-          <p class="emp-hero-sub">
-            Referência em montagem de tectos falsos em Moçambique desde 2011.
-            Qualidade, precisão e dedicação em cada projeto — do primeiro contacto à entrega final.
-          </p>
           <div class="emp-stats">
             <div class="emp-stat">
               <div class="emp-stat-value">15+</div>

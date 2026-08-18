@@ -87,6 +87,28 @@ export default async function servicosPage() {
               </ul>
             </div>
           </div>
+
+          <!-- Divisão de Paredes com Gypsum Drywall -->
+          <div class="svc-card">
+            <div class="svc-media">
+              <img src="images/divisao_parede.jpg" alt="Divisão de Paredes com Gypsum Drywall">
+              <div class="svc-media-badge">🧱</div>
+            </div>
+            <div class="svc-card-body">
+              <h3 class="svc-card-title">Divisão de Paredes com Gypsum Drywall</h3>
+              <p class="svc-card-desc">
+                Divisão de paredes internas com sistema drywall em gesso cartonado.
+                Solução rápida, limpa e económica para criar novos espaços.
+              </p>
+              <ul class="svc-features">
+                <li>Chapas de 1,20m x 2,40m x 12mm</li>
+                <li>Estrutura em perfis metálicos de 3m</li>
+                <li>Espaçamento de raias: 60cm</li>
+                <li>Isolamento acústico e térmico</li>
+                <li>Acabamento liso para pintura</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -133,6 +155,12 @@ export default async function servicosPage() {
             <div class="svc-add-icon rose">✨</div>
             <h4>Acabamentos Finos</h4>
             <p>Detalhes finais para um resultado impecável e duradouro.</p>
+          </div>
+
+          <div class="svc-add-card">
+            <div class="svc-add-icon green">🧱</div>
+            <h4>Divisão de Paredes</h4>
+            <p>Criação de novos espaços com sistema drywall em gesso cartonado.</p>
           </div>
         </div>
       </section>
