@@ -30,11 +30,15 @@ export function calcularModular(area, precos) {
     // Formula solicitada: 200 * 0.22 -> Area * 0.22
     const cantoneira = Math.ceil(area * 0.22);
 
-    // 6. Gypsum Nylon Nail-in Anchor (Buchas)
-    // Espaçamento padrão 20cm: cada 0,20m = 1 bucha por perfil
-    // Com perfis a cada 60cm, cada perfil de 3.6m precisa de 18 buchas (3.6m ÷ 0.20m)
-    // Total = (area / 1.8) × 18 = area × 10
-    const buchas = Math.ceil(area * 10);
+    // 6. Gypsum Nylon Nail-in Anchor (Buchas Tapite)
+    // Cada pacote contém 100 tapites, cada tapite com 5mt de comprimento
+    // Preço por pacote: 400 MT
+    // Fórmula: Área × 10 = número total de tapites necessários
+    const tapitesNecessarios = Math.ceil(area * 10);
+    const tapitesPorPacote = 100;
+    const metrosPorTapite = 5;
+    const metrosPorPacote = tapitesPorPacote * metrosPorTapite; // 500mt por pacote
+    const pacotesBuchas = Math.ceil(tapitesNecessarios / tapitesPorPacote);
 
     const materiais = [
         {
@@ -71,10 +75,10 @@ export function calcularModular(area, precos) {
         },
         {
             nome: 'Gypsum Nylon Nail-in Anchor bucha tapite',
-            quantidade: buchas,
-            unidade: 'unidade',
+            quantidade: pacotesBuchas,
+            unidade: 'pacote',
             preco_unitario: precos['Anchor'] || 400,
-            total: buchas * (precos['Anchor'] || 400)
+            total: pacotesBuchas * (precos['Anchor'] || 400)
         },
         {
             nome: 'Cantoneira 3 m branca',

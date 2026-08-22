@@ -34,11 +34,13 @@ export function calcularPVC(area, precos) {
     // Total = area / 3
     const mainChannel = Math.ceil(area / 3);
 
-    // 6. Gypsum Nylon Nail-in Anchor (Buchas)
+    // 6. Gypsum Nylon Nail-in Anchor (Buchas Tapite)
     // Espaçamento padrão 20cm: cada 0,20m = 1 bucha por perfil
     // Com furring a cada 60cm, cada perfil de 3m precisa de 15 buchas (3m ÷ 0,20m)
-    // Total = (area / 1.8) × 15 = area × 8.33
-    const buchas = Math.ceil(area * 8.33);
+    // Total tapites = (area / 1.8) × 15 = area × 8.33
+    // Cada pacote contém 100 tapites, preço por pacote = 400 MT
+    const totalTapites = Math.ceil(area * 8.33);
+    const pacotesBuchas = Math.ceil(totalTapites / 100); // 100 tapites por pacote
 
     const materiais = [
         {
@@ -78,10 +80,10 @@ export function calcularPVC(area, precos) {
         },
         {
             nome: 'Gypsum Nylon Nail-in Anchor bucha tapite',
-            quantidade: buchas,
-            unidade: 'unidade',
+            quantidade: pacotesBuchas,
+            unidade: 'pacote',
             preco_unitario: precos['Anchor'] || 400,
-            total: buchas * (precos['Anchor'] || 400)
+            total: pacotesBuchas * (precos['Anchor'] || 400)
         },
         {
             nome: 'Gypsum Main Channel',
@@ -107,7 +109,8 @@ export function calcularPVC(area, precos) {
             'Cálculo baseado na área total informada',
             'Espaçamento padrão Furring Perfil: 60cm',
             'Estrutura metálica considerada',
-            'Mão de obra: 350 MT/m²'
+            'Mão de obra: 350 MT/m²',
+            'Buchas Tapite: 100 tapites por pacote a 400 MT'
         ]
     };
 }
