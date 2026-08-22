@@ -10,7 +10,7 @@ const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const db = require('./database');
 const blob = require('./blob-upload');
-const { autenticarToken, verificarRole, gerarTokens, renovarToken } = require('./middleware/auth');
+const { autenticarToken, verificarRole, gerarTokens, renovarToken, registrarTentativa, limparTentativas } = require('./middleware/auth');
 const { auditMiddleware, registrarAuditoria } = require('./middleware/audit');
 
 require('dotenv').config();
@@ -24,7 +24,13 @@ const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
 const security = require('./middleware/security');
 app.use(security.helmet);
 app.use(security.cors);
+app.use(security.securityHeaders);
+app.use(security.suspiciousActivityDetector);
 app.use('/api/auth/login', security.loginLimiter);
+app.use('/api/auth/register', security.registerLimiter);
+
+// Endpoint para obter token CSRF
+app.get('/api/csrf-token', security.generateCsrf);
 
 // ==================== MIDDLEWARE GLOBAL ====================
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
@@ -165,12 +171,23 @@ function enviarEmail(destinatario, assunto, html) {
 
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 
-// Login
+// Login com proteção contra brute force
 app.post('/api/auth/login', (req, res) => {
     const { email, senha } = req.body;
 
     if (!email || !senha) {
         return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    }
+
+    // Verificar se o IP/email está bloqueado
+    const resultadoTentativa = registrarTentativa(email, req.ip);
+    if (resultadoTentativa.bloqueado) {
+        registrarAuditoria(null, 'login_bloqueado', { email, motivo: 'excesso_tentativas' }, req.ip, req.headers['user-agent']);
+        return res.status(429).json({ 
+            error: `Conta temporariamente bloqueada. Aguarde ${resultadoTentativa.restante} minutos.`,
+            bloqueado: true,
+            minutos_restantes: resultadoTentativa.restante
+        });
     }
 
     db.get('SELECT * FROM usuarios WHERE email = ?', [email], (err, user) => {
@@ -194,6 +211,8 @@ app.post('/api/auth/login', (req, res) => {
             return res.status(403).json({ error: 'Conta desativada. Contacte o administrador.' });
         }
 
+        // Login bem-sucedido: limpar tentativas
+        limparTentativas(email, req.ip);
         db.run('UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP, tentativas_login = 0 WHERE id = ?', [user.id]);
 
         const tokens = gerarTokens(user);
@@ -434,8 +453,8 @@ app.post('/api/usuarios/:id/foto', autenticarToken, verificarRole('admin'), audi
 
 // ==================== ROTAS DE CLIENTES ====================
 
-// Listar todos os clientes
-app.get('/api/clientes', (req, res) => {
+// Listar todos os clientes (requer autenticacao)
+app.get('/api/clientes', autenticarToken, (req, res) => {
     db.all('SELECT * FROM clientes ORDER BY created_at DESC', [], (err, rows) => {
         if (err) {
             res.status(500).json({ error: err.message });
@@ -453,8 +472,8 @@ app.get('/api/clientes/lista', autenticarToken, verificarRole('admin'), (req, re
     });
 });
 
-// Buscar cliente por ID
-app.get('/api/clientes/:id', (req, res) => {
+// Buscar cliente por ID (requer autenticacao)
+app.get('/api/clientes/:id', autenticarToken, (req, res) => {
     db.get('SELECT * FROM clientes WHERE id = ?', [req.params.id], (err, row) => {
         if (err) {
             res.status(500).json({ error: err.message });
@@ -540,8 +559,8 @@ app.delete('/api/clientes/:id', autenticarToken, verificarRole('admin', 'funcion
 
 // ==================== ROTAS DE SERVIÇOS ====================
 
-// Listar todos os serviços
-app.get('/api/servicos', (req, res) => {
+// Listar todos os serviços (requer autenticacao)
+app.get('/api/servicos', autenticarToken, (req, res) => {
     const query = `
     SELECT s.*, c.nome as cliente_nome 
     FROM servicos s 
@@ -558,8 +577,8 @@ app.get('/api/servicos', (req, res) => {
     });
 });
 
-// Buscar serviço por ID
-app.get('/api/servicos/:id', (req, res) => {
+// Buscar serviço por ID (requer autenticacao)
+app.get('/api/servicos/:id', autenticarToken, (req, res) => {
     const query = `
     SELECT s.*, c.nome as cliente_nome, c.telefone, c.email, c.endereco 
     FROM servicos s 
@@ -886,8 +905,8 @@ app.post('/api/blob/token', autenticarToken, verificarRole('admin', 'funcionario
     }
 });
 
-// Listar portfólio
-app.get('/api/portfolio', (req, res) => {
+// Listar portfólio (requer autenticacao)
+app.get('/api/portfolio', autenticarToken, (req, res) => {
     const tipo = req.query.tipo;
     let query = 'SELECT * FROM portfolio ORDER BY created_at DESC';
     let params = [];
@@ -1150,8 +1169,8 @@ app.delete('/api/pedidos-portfolio/:id', autenticarToken, verificarRole('admin',
 // ==================== ROTAS DE CONFIGURAÇÕES ====================
 
 
-// Buscar todas as configurações
-app.get('/api/configuracoes', (req, res) => {
+// Buscar todas as configurações (requer autenticacao)
+app.get('/api/configuracoes', autenticarToken, (req, res) => {
     db.all('SELECT * FROM configuracoes', [], (err, rows) => {
         if (err) {
             res.status(500).json({ error: err.message });

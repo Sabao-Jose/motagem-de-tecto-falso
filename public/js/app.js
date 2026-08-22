@@ -136,6 +136,7 @@ class Router {
             localStorage.removeItem('teto_falso_refresh_token');
             localStorage.removeItem('teto_falso_user');
             sessionStorage.removeItem('teto_falso_session');
+            sessionStorage.removeItem('teto_falso_session_expiry');
             window.location.hash = 'login';
             window.location.reload();
         };
@@ -200,6 +201,7 @@ function clearAuthAndRedirect() {
     localStorage.removeItem('teto_falso_refresh_token');
     localStorage.removeItem('teto_falso_user');
     sessionStorage.removeItem('teto_falso_session');
+    sessionStorage.removeItem('teto_falso_session_expiry');
     router.navigate('login');
 }
 
@@ -605,17 +607,36 @@ function verificarAcesso(path) {
     const user = userData ? JSON.parse(userData) : null;
     const role = user ? user.role : null;
 
-    // A página de login é a única acessível sem autenticação
+    // Apenas login e register sao acessiveis sem autenticacao
     if (path === 'login') return path;
 
-    // Se não estiver logado, redirecionar para login
+    // Se nao estiver logado, SEMPRE redirecionar para login
     if (!token || !role) {
+        return 'login';
+    }
+
+    // Verificar se a sessao expirou (baseado no tempo do token)
+    const sessionExpiry = sessionStorage.getItem('teto_falso_session_expiry');
+    if (sessionExpiry && Date.now() > parseInt(sessionExpiry)) {
+        // Sessao expirou: limpar e redirecionar para login
+        localStorage.removeItem('teto_falso_token');
+        localStorage.removeItem('teto_falso_refresh_token');
+        localStorage.removeItem('teto_falso_user');
+        sessionStorage.removeItem('teto_falso_session');
+        sessionStorage.removeItem('teto_falso_session_expiry');
         return 'login';
     }
 
     // Páginas apenas para admin
     const paginasAdmin = ['admin'];
     if (paginasAdmin.includes(path) && role !== 'admin') {
+        showError('Acesso não autorizado');
+        return 'home';
+    }
+
+    // Páginas apenas para admin e funcionario
+    const paginasAdminFunc = ['calculadora', 'orcamentos', 'mensagens'];
+    if (paginasAdminFunc.includes(path) && role !== 'admin' && role !== 'funcionario') {
         showError('Acesso não autorizado');
         return 'home';
     }
@@ -635,6 +656,42 @@ Router.prototype.navigate = function(path) {
     return originalNavigate.call(this, path);
 };
 
+// ==================== SESSION TIMEOUT & AUTO LOGOUT ====================
+const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 horas
+
+function verificarSessaoExpirada() {
+    const token = localStorage.getItem('teto_falso_token');
+    const sessionExpiry = sessionStorage.getItem('teto_falso_session_expiry');
+    
+    if (token && sessionExpiry) {
+        if (Date.now() > parseInt(sessionExpiry)) {
+            // Sessao expirou
+            clearAuthAndRedirect();
+            return true;
+        }
+    }
+    return false;
+}
+
+// Verificar sessao periodicamente (a cada 5 minutos)
+setInterval(() => {
+    if (verificarSessaoExpirada()) {
+        showError('Sessao expirada. Faca login novamente.');
+    }
+}, 5 * 60 * 1000);
+
+// Verificar sessao quando o utilizador volta a aba
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        verificarSessaoExpirada();
+    }
+});
+
+// Verificar sessao em cada navegacao
+window.addEventListener('hashchange', () => {
+    verificarSessaoExpirada();
+});
+
 // ==================== INITIALIZE APP ====================
 const router = new Router();
 
@@ -651,31 +708,94 @@ Promise.all([
     import('./pages/termos.js').then(module => router.register('termos', module.default)),
     import('./pages/login.js').then(module => router.register('login', module.default)),
     import('./pages/admin.js').then(module => router.register('admin', module.default))
-]).then(() => {
-    // Atualizar nav baseado na role
-    atualizarNav();
+  ]).then(async () => {
+      // ==================== SEGURANCA TOTAL: GATE DE AUTENTICACAO ====================
+      // QUALQUER pessoa que acessar o link do sistema é direcionada à tela de
+      // LOGIN primeiro. Só entra sem login se já existir uma sessão ATIVA nesta
+      // aba/janela E o token for confirmado diretamente com o servidor.
+      const removerAuthGate = () => {
+          const gate = document.getElementById('authGate');
+          if (gate) {
+              gate.style.opacity = '0';
+              setTimeout(() => gate.remove(), 250);
+          }
+      };
 
-    // Determinar página inicial - SEMPRE ir para login se não autenticado
-    const hasSession = sessionStorage.getItem('teto_falso_session');
-    const token = localStorage.getItem('teto_falso_token');
-    let initialPage;
-    if (hasSession && token) {
-        // Sessão ativa: fica onde está ou vai para home
-        initialPage = window.location.hash.slice(1) || 'home';
-    } else if (token) {
-        // Tem token mas não tem sessão: ativar sessão e ficar onde está
-        sessionStorage.setItem('teto_falso_session', '1');
-        initialPage = window.location.hash.slice(1) || 'home';
-    } else {
-        // Sem sessão e sem token: SEMPRE ir para login
-        initialPage = 'login';
-    }
-    window.location.hash = initialPage;
-    router.navigate(initialPage);
-}).catch(error => {
-    console.error('Error loading pages:', error);
-    showError(`Erro ao carregar o sistema: ${error.message}. Por favor, recarregue a página.`);
-});
+      // Valida o token atual junto ao servidor; se estiver expirado tenta
+      // renovar com o refresh token (uma única vez). Devolve o user ou null.
+      async function validarSessaoComServidor() {
+          let tk = localStorage.getItem('teto_falso_token');
+          if (!tk) return null;
+
+          let resp = await fetch(`${API_URL}/auth/me`, {
+              headers: { 'Authorization': `Bearer ${tk}` }
+          });
+
+          // Token expirado: tentar renovar UMA vez e repetir a validação
+          if (resp.status === 401) {
+              try {
+                  await tryRefreshToken();
+                  tk = localStorage.getItem('teto_falso_token');
+                  resp = await fetch(`${API_URL}/auth/me`, {
+                      headers: { 'Authorization': `Bearer ${tk}` }
+                  });
+              } catch {
+                  return null;
+              }
+          }
+
+          if (!resp.ok) return null;
+          try {
+              const data = await resp.json();
+              localStorage.setItem('teto_falso_user', JSON.stringify(data.user));
+              return data.user;
+          } catch {
+              return null;
+          }
+      }
+
+      const token = localStorage.getItem('teto_falso_token');
+      const hasSession = sessionStorage.getItem('teto_falso_session');
+      const expiry = parseInt(sessionStorage.getItem('teto_falso_session_expiry') || '0', 10);
+      const sessaoAtivaNestaAba = hasSession === '1' && expiry > Date.now();
+
+      let destino = 'login'; // POR DEFEITO: SEMPRE LOGIN
+
+      if (token && sessaoAtivaNestaAba) {
+          // Sessão ativa nesta aba: confirmar credenciais com o servidor
+          const user = await validarSessaoComServidor();
+          if (user && user.role) {
+              // Autenticado e autorizado: respeitar permissões da página pedida.
+              // verificarAcesso devolve 'login' se não autenticado, corrige
+              // páginas restritas por role, ou mantém o pedido original.
+              destino = verificarAcesso(window.location.hash.slice(1) || 'home');
+          }
+      }
+
+      // Sem sessão válida => limpar TODAS as credenciais antigas e IR PARA LOGIN
+      if (destino === 'login') {
+          localStorage.removeItem('teto_falso_token');
+          localStorage.removeItem('teto_falso_refresh_token');
+          localStorage.removeItem('teto_falso_user');
+          sessionStorage.removeItem('teto_falso_session');
+          sessionStorage.removeItem('teto_falso_session_expiry');
+      }
+
+      atualizarNav();
+      removerAuthGate();
+
+      window.location.hash = destino;
+      router.navigate(destino);
+  }).catch(error => {
+      console.error('Error loading pages:', error);
+      // Se as páginas falharem ao carregar, avisar DENTRO do authGate
+      // (o gate cobre todo o ecrã com z-index máximo)
+      const msg = document.querySelector('#authGate p');
+      if (msg) {
+          msg.style.color = '#ef4444';
+          msg.textContent = 'Erro ao carregar o sistema: ' + error.message + '. Recarregue a página.';
+      }
+  });
 
 // Export for use in other modules
 export { router, api, state, render, formatCurrency, formatDate, showLoading, hideLoading, showError, showSuccess, atualizarNav, redirectAfterLogin };

@@ -177,6 +177,9 @@ export default async function loginPage() {
             localStorage.setItem('teto_falso_token', data.token);
             localStorage.setItem('teto_falso_user', JSON.stringify(data.user));
             sessionStorage.setItem('teto_falso_session', '1');
+            // Definir expiracao da sessao (24 horas)
+            const SESSION_DURATION = 24 * 60 * 60 * 1000;
+            sessionStorage.setItem('teto_falso_session_expiry', (Date.now() + SESSION_DURATION).toString());
             atualizarNav();
             showSuccess(`Bem-vindo, ${data.user.nome}!`);
             router.navigate(redirectAfterLogin(data.user));
@@ -224,6 +227,9 @@ export default async function loginPage() {
             localStorage.setItem('teto_falso_token', data.token);
             localStorage.setItem('teto_falso_user', JSON.stringify(data.user));
             sessionStorage.setItem('teto_falso_session', '1');
+            // Definir expiracao da sessao (24 horas)
+            const SESSION_DURATION = 24 * 60 * 60 * 1000;
+            sessionStorage.setItem('teto_falso_session_expiry', (Date.now() + SESSION_DURATION).toString());
             atualizarNav();
             showSuccess('Conta criada com sucesso!');
             router.navigate('home');

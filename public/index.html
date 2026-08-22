@@ -26,6 +26,20 @@
 </head>
 
 <body>
+  <!-- ==================== AUTH GATE: SEGURANÇA TOTAL ====================
+       Bloqueia visualmente TODO o sistema até a sessão ser validada.
+       É removido apenas depois da validação com o servidor.
+       Qualquer acesso ao link cai aqui primeiro => LOGIN obrigatório. -->
+  <div id="authGate" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; opacity: 1; transition: opacity 0.25s ease-out;">
+    <img src="images/logo.png" alt="Tecto Falso Sabao" style="width: 90px; height: auto; opacity: 0.9; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));">
+    <p style="color: #cbd5e1; font-family: 'Inter', sans-serif; font-size: 0.95rem; margin: 0;">Verificando acesso ao sistema...</p>
+    <div style="width: 42px; height: 42px; border: 4px solid rgba(255,255,255,0.15); border-top-color: #3b82f6; border-radius: 50%; animation: authGateSpin 0.8s linear infinite;"></div>
+    <noscript>
+      <p style="color: #ef4444; font-family: 'Inter', sans-serif; max-width: 320px; text-align: center;">Ative o JavaScript para acessar o sistema.</p>
+    </noscript>
+  </div>
+  <style>@keyframes authGateSpin { to { transform: rotate(360deg); } }</style>
+
   <!-- Sidebar Toggle (mobile) -->
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
     <span></span>
