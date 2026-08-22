@@ -453,7 +453,8 @@ export default async function portfolioPage() {
         // 1. Vídeos E ficheiros grandes (>4MB): upload direto ao Blob pelo browser
         //    (contorna o limite de ~4.5MB do Vercel Hobby)
         // 2. Ficheiros pequenos normais: upload via servidor (multer)
-        if (arquivo && isDirectUploadAvailable() && (isVideo || arquivo.size > DIRECT_UPLOAD_MIN)) {
+        const blobDiretoDisponivel = await isDirectUploadAvailable();
+        if (arquivo && blobDiretoDisponivel && (isVideo || arquivo.size > DIRECT_UPLOAD_MIN)) {
           emUpload = true;
           const isVid = isVideo ? 'vídeo' : 'ficheiro';
           prog.show(`A enviar ${isVid} para o armazenamento...`);

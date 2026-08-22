@@ -52,7 +52,9 @@ const securityMiddleware = {
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "https:", "blob:"],
         mediaSrc: ["'self'", "https:", "blob:"],
-        connectSrc: ["'self'"],
+        // vercel.com: necessario para o upload direto ao Blob Storage
+        // (PUT https://vercel.com/api/blob feito pelo browser)
+        connectSrc: ["'self'", "https://vercel.com"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
