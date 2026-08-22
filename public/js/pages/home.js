@@ -8,11 +8,14 @@ export default async function homePage() {
 
   let stats = { total_clientes: 0, total_servicos: 0, valor_total_faturado: 0, area_total: 0 };
 
-  try {
-    const response = await api.get('/relatorios/estatisticas');
-    stats = response.estatisticas;
-  } catch (error) {
-    console.error('Error loading statistics:', error);
+  // Só carrega estatísticas se estiver logado (admin ou funcionário)
+  if (isAdminOrFunc) {
+    try {
+      const response = await api.get('/relatorios/estatisticas');
+      stats = response.estatisticas;
+    } catch (error) {
+      console.error('Error loading statistics:', error);
+    }
   }
 
   render(`

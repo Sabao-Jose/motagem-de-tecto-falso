@@ -599,14 +599,17 @@ function redirectAfterLogin(user) {
 }
 
 // ==================== ROLE-BASED ACCESS CONTROL ====================
+// Páginas públicas acessíveis sem autenticação
+const PAGINAS_PUBLICAS = ['home', 'servicos', 'empresa', 'portfolio', 'contato', 'termos', 'login'];
+
 function verificarAcesso(path) {
     const token = localStorage.getItem('teto_falso_token');
     const userData = localStorage.getItem('teto_falso_user');
     const user = userData ? JSON.parse(userData) : null;
     const role = user ? user.role : null;
 
-    // A página de login é a única acessível sem autenticação
-    if (path === 'login') return path;
+    // Páginas públicas são sempre acessíveis
+    if (PAGINAS_PUBLICAS.includes(path)) return path;
 
     // Se não estiver logado, redirecionar para login
     if (!token || !role) {
@@ -655,15 +658,20 @@ Promise.all([
     // Atualizar nav baseado na role
     atualizarNav();
 
-    // Primeiro acesso no separador? Vai para login. Recarregou? Fica onde está.
+    // Determinar página inicial
     const hasSession = sessionStorage.getItem('teto_falso_session');
     const token = localStorage.getItem('teto_falso_token');
     let initialPage;
     if (hasSession && token) {
+        // Sessão ativa: fica onde está ou vai para home
+        initialPage = window.location.hash.slice(1) || 'home';
+    } else if (token) {
+        // Tem token mas não tem sessão: ativar sessão e ficar onde está
+        sessionStorage.setItem('teto_falso_session', '1');
         initialPage = window.location.hash.slice(1) || 'home';
     } else {
-        initialPage = 'login';
-        if (token) sessionStorage.setItem('teto_falso_session', '1');
+        // Sem sessão e sem token: fica na home como visitante
+        initialPage = window.location.hash.slice(1) || 'home';
     }
     window.location.hash = initialPage;
     router.navigate(initialPage);
