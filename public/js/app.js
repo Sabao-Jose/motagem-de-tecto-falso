@@ -599,17 +599,14 @@ function redirectAfterLogin(user) {
 }
 
 // ==================== ROLE-BASED ACCESS CONTROL ====================
-// Páginas públicas acessíveis sem autenticação
-const PAGINAS_PUBLICAS = ['home', 'servicos', 'empresa', 'portfolio', 'contato', 'termos', 'login'];
-
 function verificarAcesso(path) {
     const token = localStorage.getItem('teto_falso_token');
     const userData = localStorage.getItem('teto_falso_user');
     const user = userData ? JSON.parse(userData) : null;
     const role = user ? user.role : null;
 
-    // Páginas públicas são sempre acessíveis
-    if (PAGINAS_PUBLICAS.includes(path)) return path;
+    // A página de login é a única acessível sem autenticação
+    if (path === 'login') return path;
 
     // Se não estiver logado, redirecionar para login
     if (!token || !role) {
@@ -658,7 +655,7 @@ Promise.all([
     // Atualizar nav baseado na role
     atualizarNav();
 
-    // Determinar página inicial
+    // Determinar página inicial - SEMPRE ir para login se não autenticado
     const hasSession = sessionStorage.getItem('teto_falso_session');
     const token = localStorage.getItem('teto_falso_token');
     let initialPage;
@@ -670,8 +667,8 @@ Promise.all([
         sessionStorage.setItem('teto_falso_session', '1');
         initialPage = window.location.hash.slice(1) || 'home';
     } else {
-        // Sem sessão e sem token: fica na home como visitante
-        initialPage = window.location.hash.slice(1) || 'home';
+        // Sem sessão e sem token: SEMPRE ir para login
+        initialPage = 'login';
     }
     window.location.hash = initialPage;
     router.navigate(initialPage);
