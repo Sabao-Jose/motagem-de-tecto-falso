@@ -39,14 +39,25 @@ setInterval(() => {
 const securityMiddleware = {
   helmet: helmet({
     contentSecurityPolicy: {
+      // useDefaults desativado para controlar todas as diretrizes
+      // (o default do helmet injeta script-src-attr 'none', que mata
+      // todos os onclick="" inline usados em todo o painel admin)
+      useDefaults: false,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+        // Permite handlers inline (onclick="...") usados nos botoes do painel
+        scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "https:", "blob:"],
         mediaSrc: ["'self'", "https:", "blob:"],
         connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
       },
     },
     crossOriginEmbedderPolicy: false,
