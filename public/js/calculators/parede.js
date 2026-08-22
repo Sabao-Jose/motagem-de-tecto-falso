@@ -140,8 +140,10 @@ export function calcularParede(altura, comprimento, precos = {}) {
         areaTotal: areaTotal.toFixed(2),
         raiasPorLado: raiasPorLado,
         espacamento: ESPACAMENTO_RAIA * 100, // em cm
+        espacamento_montantes: ESPACAMENTO_RAIA * 100, // alias para template
         chapasPorLado: Math.ceil(areaPorLado / CHAPA_AREA),
         margem: '10%',
+        margem_chapas: '10%', // alias para template
         totalParafusos025,
         totalParafusos95,
         totalBuchas

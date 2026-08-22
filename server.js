@@ -10,6 +10,8 @@ const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const db = require('./database');
 const blob = require('./blob-upload');
+const { autenticarToken, verificarRole, gerarTokens, renovarToken } = require('./middleware/auth');
+const { auditMiddleware, registrarAuditoria } = require('./middleware/audit');
 
 require('dotenv').config();
 
@@ -42,6 +44,19 @@ if (!blob.isVercel) {
 
 // ==================== HEALTH CHECK ====================
 app.get('/api/health', async (req, res) => {
+    try {
+        await db.ready;
+        res.json({
+            status: 'ok',
+            blob_token: !!process.env.BLOB_READ_WRITE_TOKEN
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'error' });
+    }
+});
+
+// Admin-only health check for full diagnostic info
+app.get('/api/admin/health', autenticarToken, verificarRole('admin'), async (req, res) => {
     try {
         await db.ready;
         res.json({
@@ -105,10 +120,6 @@ const upload = multer({
         }
     }
 });
-
-// ==================== MIDDLEWARE DE AUTENTICAÇÃO (MELHORADO) ====================
-const { autenticarToken, verificarRole, gerarTokens, renovarToken } = require('./middleware/auth');
-const { auditMiddleware, registrarAuditoria } = require('./middleware/audit');
 
 // ==================== FUNÇÃO DE ENVIO DE EMAIL ====================
 
@@ -853,8 +864,22 @@ app.post('/api/blob/token', autenticarToken, verificarRole('admin', 'funcionario
         return res.status(400).json({ error: 'Upload direto só está disponível no Vercel (em produção). Em desenvolvimento use o formulário normal.' });
     }
 
+    const allowedFolders = ['portfolio', 'fotos', 'anexos', 'uploads'];
+    const safeFolder = allowedFolders.includes(folder) ? folder : 'uploads';
+
+    const safeName = path.basename(originalname);
+    const ext = path.extname(safeName).toLowerCase();
+    const allowedExts = ['.jpeg', '.jpg', '.png', '.gif', '.webp', '.mp4', '.avi', '.mov', '.mkv', '.webm', '.3gp', '.ogg', '.pdf'];
+    if (!allowedExts.includes(ext)) {
+        return res.status(400).json({ error: 'Tipo de ficheiro não permitido' });
+    }
+
     try {
-        const info = await blob.getClientUploadToken(originalname, folder || 'portfolio');
+        const crypto = require('crypto');
+        const randomPart = crypto.randomBytes(8).toString('hex');
+        const finalName = `${path.basename(safeName, ext)}_${randomPart}${ext}`;
+
+        const info = await blob.getClientUploadToken(finalName, safeFolder);
         res.json(info);
     } catch (err) {
         res.status(500).json({ error: 'Erro ao preparar upload: ' + err.message });

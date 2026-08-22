@@ -1509,17 +1509,22 @@ export default async function adminPage() {
         return `${m[3]}/${m[2]}/${m[1]} às ${m[4]}:${m[5]}`;
     };
 
+    // Função auxiliar para escapar HTML (evita XSS nos logs de auditoria)
+    const _escHtml = (str) => String(str == null ? '' : str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
     const formatarDetalhes = (log) => {
         if (!log || !log.detalhes) return '-';
         try {
             const d = JSON.parse(log.detalhes);
             const partes = Object.entries(d).map(([k, v]) => {
                 const val = typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
-                return `<span style="color: var(--gray);">${k}:</span> <strong>${String(val).slice(0, 120)}</strong>`;
+                return `<span style="color: var(--gray);">${_escHtml(k)}:</span> <strong>${_escHtml(String(val).slice(0, 120))}</strong>`;
             });
             return partes.join(' · ') || '-';
         } catch {
-            return String(log.detalhes).slice(0, 200);
+            return _escHtml(String(log.detalhes).slice(0, 200));
         }
     };
 
@@ -1560,12 +1565,12 @@ export default async function adminPage() {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--gray); padding: 1.5rem;">Nenhum registo encontrado.</td></tr>';
             } else {
                 tbody.innerHTML = historicoLogs.map(log => `
-                    <tr>
+                                        <tr>
                         <td style="white-space: nowrap; font-size: 0.8rem;">${formatarDataHora(log.created_at)}</td>
-                        <td>${log.usuario_nome ? `<strong>${log.usuario_nome}</strong>` : '<span style="color: var(--gray);">— sistema —</span>'}</td>
-                        <td><span class="badge" style="background: var(--light); color: var(--primary); font-size: 0.75rem;">${getLabelAcao(log.acao)}</span></td>
+                        <td>${log.usuario_nome ? `<strong>${_escHtml(log.usuario_nome)}</strong>` : `<span style="color: var(--gray);">— sistema —</span>`}</td>
+                        <td><span class="badge" style="background: var(--light); color: var(--primary); font-size: 0.75rem;">${_escHtml(getLabelAcao(log.acao))}</span></td>
                         <td style="font-size: 0.8rem;">${formatarDetalhes(log)}</td>
-                        <td style="font-size: 0.8rem; color: var(--gray);">${log.ip || '-'}</td>
+                        <td style="font-size: 0.8rem; color: var(--gray);">${_escHtml(log.ip || '-')}</td>
                     </tr>`).join('');
             }
 
@@ -2669,11 +2674,17 @@ export default async function adminPage() {
             servicos = resS.servicos || [];
             estatisticas = resE.estatisticas || {};
 
-            const statsCards = document.querySelector('.grid.grid-4.mb-3');
+            const statsCards = document.querySelector('.admin-stat-grid');
             if (statsCards) {
                 const filhos = statsCards.children;
-                if (filhos[1]) filhos[1].querySelector('h3').textContent = estatisticas.total_servicos || 0;
-                if (filhos[2]) filhos[2].querySelector('h3').textContent = new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(estatisticas.valor_total_faturado || 0);
+                if (filhos[1]) {
+                    const valEl = filhos[1].querySelector('.admin-stat-value');
+                    if (valEl) valEl.textContent = estatisticas.total_servicos || 0;
+                }
+                if (filhos[2]) {
+                    const valEl = filhos[2].querySelector('.admin-stat-value');
+                    if (valEl) valEl.textContent = new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(estatisticas.valor_total_faturado || 0);
+                }
             }
 
             pesquisarRelatorioAdmin();
@@ -3982,10 +3993,11 @@ export default async function adminPage() {
             formData.append('tipo_servico', document.getElementById('editPortfolioTipo').value);
             const arquivo = document.getElementById('editPortfolioArquivo').files[0];
             if (arquivo) formData.append('arquivo', arquivo);
+            let prog;
+            let emUpload = false;
             try {
                 // Barra de progresso do upload
-                const prog = createProgressBar(document.getElementById('editUploadProgressContainer'));
-                let emUpload = false;
+                prog = createProgressBar(document.getElementById('editUploadProgressContainer'));
 
                 // Ficheiros grandes (>4MB) vão direto ao Blob pelo browser
                 // (o servidor no Vercel Hobby tem limite de ~4.5MB por request).
@@ -4026,9 +4038,10 @@ export default async function adminPage() {
                     });
                 }
                 if (emUpload) prog.done('Projecto actualizado com sucesso!');
-                showSuccess('Projecto actualizado!');
+                showSuccess('Projecto actualizado!', false);
                 if (emUpload) setTimeout(() => prog.hide(), 1500);
             } catch (error) {
+                if (prog) prog.hide();
                 showError(error.message);
             }
         });
@@ -4398,16 +4411,20 @@ export default async function adminPage() {
 
                 if (!confirm(`⚠️ Tem a certeza que deseja apagar ${ids.length} item(s)?\n\nEsta ação NÃO pode ser revertida!`)) return;
 
-                try {
-                    for (const id of ids) {
-                        await api.delete(`${deleteEndpoint}/${id}`);
-                    }
-                    showSuccess(`${ids.length} item(s) apagado(s) com sucesso!`);
-                    if (onDeleted) onDeleted();
-                    else adminPage();
-                } catch (error) {
-                    showError('Erro ao apagar: ' + (error.message || 'Erro desconhecido'));
+                const results = await Promise.allSettled(ids.map(id => api.delete(`${deleteEndpoint}/${id}`)));
+                const successCount = results.filter(r => r.status === 'fulfilled').length;
+                const failCount = results.length - successCount;
+
+                if (failCount > 0) {
+                    showError(`${failCount} item(s) falharam ao apagar.`);
                 }
+                if (successCount > 0) {
+                    // Use showSuccess without reloading, as we refresh UI manually
+                    showSuccess(`${successCount} item(s) apagado(s) com sucesso!`, false);
+                }
+
+                if (onDeleted) onDeleted();
+                else if (typeof adminPage === 'function') adminPage();
             });
         }
     }

@@ -680,7 +680,10 @@ function renderResultado() {
         <tbody>
           ${materiais.map(m => `
             <tr>
-              <td>${m.nome}</td>
+              <td>
+                ${m.nome}
+                ${m.detalhe ? `<br><small style="color: var(--gray); font-style: italic;">${m.detalhe}</small>` : ''}
+              </td>
               <td>${m.quantidade}</td>
               <td>${m.unidade}</td>
               <td>${formatCurrency(m.preco_unitario || 0)}</td>

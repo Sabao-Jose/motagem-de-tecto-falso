@@ -13,21 +13,21 @@ function getUserRole() {
 
 // ==================== TEXTOS CHAMATIVOS ====================
 const FALLBACK_DESCRICOES = {
-  'Gesso': 'Tectos de gesso com design elegante e acabamento impecável.',
-  'PVC': 'Tectos de PVC resistentes, práticos e fáceis de manter.',
-  'Modular': 'Tectos modulares modernos e versáteis para qualquer ambiente.',
-  'Pintura': 'Pintura profissional que dá vida e cor aos seus espaços.',
-  'Elétrica': 'Instalações elétricas seguras e bem integradas ao tecto.',
-  'Acabamentos': 'Acabamentos de alto padrão que valorizam o seu imóvel.'
+  'Gesso': 'Crie ambientes luxuosos com os nossos tectos em gesso. Acabamento perfeito e design sofisticado que transforma qualquer espaço.',
+  'PVC': 'Elegância e praticidade. Tectos em PVC altamente resistentes, fáceis de limpar e com acabamentos modernos.',
+  'Modular': 'A escolha ideal para escritórios e áreas comerciais. Tectos modulares com isolamento acústico e visual premium.',
+  'Pintura': 'Renove o seu ambiente com a nossa pintura profissional. Cores vibrantes, texturas suaves e acabamento de alto padrão.',
+  'Elétrica': 'Iluminação e instalações elétricas integradas ao design do tecto, criando cenários de luz incríveis e acolhedores.',
+  'Acabamentos': 'Detalhes que fazem a diferença. Acabamentos minuciosos que elevam a qualidade e valorizam o seu imóvel.'
 };
 
 const FILTROS = [
   { nome: 'Todos', icono: '✨' },
-  { nome: 'Gesso', icono: '🧱' },
-  { nome: 'PVC', icono: '🔵' },
+  { nome: 'Gesso', icono: '🏛️' },
+  { nome: 'PVC', icono: '💠' },
   { nome: 'Modular', icono: '🔳' },
   { nome: 'Pintura', icono: '🎨' },
-  { nome: 'Elétrica', icono: '⚡' },
+  { nome: 'Elétrica', icono: '💡' },
   { nome: 'Acabamentos', icono: '🛠️' }
 ];
 
@@ -35,6 +35,8 @@ const FILTROS = [
 const escapeHtml = (str = '') => String(str).replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
+
+let globListenersAdded = false;
 
 export default async function portfolioPage() {
   let portfolio = [];
@@ -134,13 +136,13 @@ export default async function portfolioPage() {
     <div class="pf-page">
 
       <!-- ==================== HERO ==================== -->
-      <section class="pf-hero">
-        <div class="pf-hero-inner">
-          <span class="pf-hero-badge">★ Portfólio de Excelência</span>
-          <h1 class="pf-hero-title">Projetos que <span class="pf-hero-gradient">Transformam</span> Ambientes</h1>
-          <p class="pf-hero-sub">
+      <section class="pf-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 4rem 1rem; border-radius: var(--radius-lg); margin-bottom: 2rem; color: white; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <div class="pf-hero-inner" style="max-width: 800px; margin: 0 auto;">
+          <span class="pf-hero-badge" style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600; color: #38bdf8; display: inline-block; margin-bottom: 1rem;">★ Portfólio de Excelência</span>
+          <h1 class="pf-hero-title" style="font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 800; margin-bottom: 1rem; line-height: 1.2;">Projetos que <span class="pf-hero-gradient" style="background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; color: transparent;">Transformam</span> Ambientes</h1>
+          <p class="pf-hero-sub" style="font-size: 1.1rem; color: #94a3b8; margin-bottom: 2rem; line-height: 1.6;">
             Cada obra conta uma história de qualidade, precisão e design. Explore os nossos projetos
-            e inspire-se para criar o espaço dos seus sonhos.
+            exclusivos e inspire-se para criar o espaço dos seus sonhos.
           </p>
           ${statsHtml}
         </div>
@@ -149,32 +151,33 @@ export default async function portfolioPage() {
       <div class="container">
 
         <!-- ==================== FILTROS ==================== -->
-        <div class="pf-filters" id="portfolioTabs">
+        <div class="pf-filters" id="portfolioTabs" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-bottom: 2rem;">
           ${FILTROS.map((f, index) => `
-            <button class="pf-filter ${index === 0 ? 'active' : ''}" data-tipo="${f.nome}">
+            <button class="pf-filter ${index === 0 ? 'active' : ''}" data-tipo="${f.nome}" style="padding: 0.6rem 1.2rem; border-radius: 20px; border: 1px solid var(--light); background: white; cursor: pointer; transition: all 0.3s ease; font-weight: 600; color: var(--dark);">
               <span class="pf-filter-icon">${f.icono}</span> ${f.nome}
             </button>
           `).join('')}
         </div>
 
-        <!-- ==================== QUADRO 2D DE PROJETOS (ROLAGEM AUTOMÁTICA) ==================== -->
-        <div class="pf-section-head">
-          <h2 class="pf-section-title">Nossos Projetos</h2>
+        <!-- ==================== QUADRO DE PROJETOS ==================== -->
+        <div class="pf-section-head" style="text-align: center; margin-bottom: 2rem;">
+          <h2 class="pf-section-title" style="font-size: 2rem; font-weight: 700; color: var(--dark-900);">Nossos Projetos</h2>
+          <p style="color: var(--gray); font-size: 1rem; max-width: 600px; margin: 0.5rem auto 0;">Clique nas imagens para ampliar ou peça um orçamento diretamente do projeto que mais gostar.</p>
         </div>
 
-        <div class="pf-board" id="pfBoard">
-          <div class="pf-board-inner">
+        <div class="pf-board" id="pfBoard" style="margin-bottom: 4rem;">
+          <div class="pf-board-inner" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; justify-content: center;">
             ${cardsHtml}
           </div>
         </div>
 
         <!-- ==================== CTA ==================== -->
-        <section class="pf-cta">
-          <div class="pf-cta-text">
-            <h3>Pronto para transformar o seu espaço?</h3>
-            <p>Peça um orçamento gratuito e veja o seu projeto ganhar vida com a nossa equipa especializada.</p>
+        <section class="pf-cta" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); padding: 3rem 1.5rem; border-radius: var(--radius-lg); text-align: center; color: white; margin-bottom: 3rem; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);">
+          <div class="pf-cta-text" style="margin-bottom: 1.5rem;">
+            <h3 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem;">Pronto para transformar o seu espaço?</h3>
+            <p style="font-size: 1.1rem; opacity: 0.9;">Peça um orçamento gratuito e veja o seu projeto ganhar vida com a nossa equipa especializada.</p>
           </div>
-          <a class="pf-cta-btn" href="${whatsappCta}" target="_blank" rel="noopener">
+          <a class="pf-cta-btn" href="${whatsappCta}" target="_blank" rel="noopener" style="display: inline-block; background: white; color: #3b82f6; padding: 1rem 2rem; border-radius: var(--radius-full); font-weight: 700; font-size: 1.1rem; text-decoration: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s;">
             💬 Pedir Orçamento Grátis
           </a>
         </section>
@@ -314,18 +317,23 @@ export default async function portfolioPage() {
   const lightboxContent = document.getElementById('lightboxContent');
   const lightboxClose = document.querySelector('.lightbox-close');
 
-  // Flag: evita abrir o lightbox após um arraste no carrossel
-  let draggedFar = false;
-
   document.querySelectorAll('.pf-media-wrap').forEach(wrap => {
     wrap.addEventListener('click', () => {
-      if (draggedFar) return;
       const media = wrap.querySelector('.pf-media');
       const src = media.getAttribute('src');
+      lightboxContent.innerHTML = '';
       if (media.tagName === 'IMG') {
-        lightboxContent.innerHTML = `<img src="${src}" class="lightbox-content">`;
+        const img = document.createElement('img');
+        img.src = src;
+        img.className = 'lightbox-content';
+        lightboxContent.appendChild(img);
       } else if (media.tagName === 'VIDEO') {
-        lightboxContent.innerHTML = `<video src="${src}" class="lightbox-content" controls autoplay></video>`;
+        const vid = document.createElement('video');
+        vid.src = src;
+        vid.className = 'lightbox-content';
+        vid.controls = true;
+        vid.autoplay = true;
+        lightboxContent.appendChild(vid);
       } else {
         return; // placeholder sem mídia
       }
@@ -346,11 +354,17 @@ export default async function portfolioPage() {
     }
   });
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && lightbox.classList.contains('active')) {
-      closeLightbox();
-    }
-  });
+  if (!globListenersAdded) {
+    document.addEventListener('keydown', (e) => {
+      const lb = document.getElementById('lightbox');
+      if (e.key === 'Escape' && lb && lb.classList.contains('active')) {
+        lb.classList.remove('active');
+        const lbContent = document.getElementById('lightboxContent');
+        if (lbContent) lbContent.innerHTML = '';
+        document.body.style.overflow = '';
+      }
+    });
+  }
 
   // ==================== EXCLUIR PROJETO ====================
   document.querySelectorAll('.btn-delete-portfolio').forEach(btn => {
@@ -377,121 +391,20 @@ export default async function portfolioPage() {
     filter.addEventListener('click', () => {
       const tipo = filter.dataset.tipo;
 
-      filters.forEach(f => f.classList.remove('active'));
+      filters.forEach(f => {
+        f.classList.remove('active');
+        f.style.background = 'white';
+        f.style.color = 'var(--dark)';
+      });
       filter.classList.add('active');
+      filter.style.background = 'var(--primary)';
+      filter.style.color = 'white';
 
       items.forEach(item => {
         item.style.display = (tipo === 'Todos' || item.dataset.tipo === tipo) ? 'block' : 'none';
       });
     });
   });
-
-  // ==================== QUADRO 2D (ROLAGEM AUTOMÁTICA) ====================
-  const board = document.getElementById('pfBoard');
-
-  const PASSO = 360;
-
-  // Rola automaticamente o quadro (percorre ↑ ↓ ← → sem interação)
-  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const VELOCIDADE_AUTO = 2;   // px por frame (~83px/s) — ajuste aqui para mais rápido/lento
-  const INTERVALO_AUTO = 24;   // ms entre frames
-  let autoPanId = null;
-  let autoPanPaused = false;
-
-  const stopAutoPan = () => {
-    if (autoPanId) { clearInterval(autoPanId); autoPanId = null; }
-  };
-
-  const startAutoPan = () => {
-    if (prefersReduced) return;
-    stopAutoPan();
-    let phase = 'right';
-    autoPanId = setInterval(() => {
-      if (autoPanPaused || document.hidden) return;
-      const maxX = board.scrollWidth - board.clientWidth;
-      const maxY = board.scrollHeight - board.clientHeight;
-      if (maxX <= 0 && maxY <= 0) { stopAutoPan(); return; }
-      switch (phase) {
-        case 'right':
-          if (board.scrollLeft < maxX) board.scrollLeft += VELOCIDADE_AUTO;
-          else phase = maxY > 0 ? 'down' : 'left';
-          break;
-        case 'down':
-          if (board.scrollTop < maxY) board.scrollTop += VELOCIDADE_AUTO;
-          else phase = 'left';
-          break;
-        case 'left':
-          if (board.scrollLeft > 0) board.scrollLeft -= VELOCIDADE_AUTO;
-          else phase = maxY > 0 ? 'up' : 'right';
-          break;
-        case 'up':
-          if (board.scrollTop > 0) board.scrollTop -= VELOCIDADE_AUTO;
-          else phase = 'right';
-          break;
-      }
-    }, INTERVALO_AUTO);
-  };
-
-  // Pausa ao passar o rato / tocar, para o utilizador ver os projetos com calma
-  board.addEventListener('mouseenter', () => { autoPanPaused = true; });
-  board.addEventListener('mouseleave', () => { autoPanPaused = false; });
-  board.addEventListener('touchstart', () => { autoPanPaused = true; }, { passive: true });
-  board.addEventListener('touchend', () => { setTimeout(() => { autoPanPaused = false; }, 3000); });
-
-  startAutoPan();
-
-  // Arraste com o rato em qualquer direção (pan 2D)
-  let isDragging = false;
-  let dragStartX = 0;
-  let dragStartY = 0;
-  let dragStartScrollLeft = 0;
-  let dragStartScrollTop = 0;
-  let movedTotal = 0;
-
-  board.addEventListener('mousedown', (e) => {
-    if (e.target.closest('button')) return;
-    isDragging = true;
-    dragStartX = e.pageX;
-    dragStartY = e.pageY;
-    dragStartScrollLeft = board.scrollLeft;
-    dragStartScrollTop = board.scrollTop;
-    movedTotal = 0;
-    board.classList.add('pf-dragging');
-  });
-
-  window.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const dx = e.pageX - dragStartX;
-    const dy = e.pageY - dragStartY;
-    movedTotal = Math.max(Math.abs(dx), Math.abs(dy));
-    if (movedTotal > 8) draggedFar = true;
-    board.scrollLeft = dragStartScrollLeft - dx;
-    board.scrollTop = dragStartScrollTop - dy;
-  });
-
-  window.addEventListener('mouseup', () => {
-    if (!isDragging) return;
-    isDragging = false;
-    board.classList.remove('pf-dragging');
-    setTimeout(() => { draggedFar = false; }, 80);
-  });
-
-  // Teclado ↑ ↓ ← → quando o quadro está focado
-  board.addEventListener('keydown', (e) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      e.preventDefault();
-      const delta = {
-        ArrowUp: { top: -PASSO },
-        ArrowDown: { top: PASSO },
-        ArrowLeft: { left: -PASSO },
-        ArrowRight: { left: PASSO }
-      }[e.key];
-      board.scrollBy({ ...delta, behavior: 'smooth' });
-    }
-  });
-  board.setAttribute('tabindex', '0');
-  // A rodinha do rato rola para cima/baixo e, com Shift, para os lados
-  // (comportamento nativo de um contentor com overflow em ambas as direções)
 
   // ==================== ANIMAÇÃO DE ENTRADA ====================
   const revealCards = () => {

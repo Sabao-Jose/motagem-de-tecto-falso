@@ -325,7 +325,7 @@ const api = {
         // progresso do upload) para alimentar a barra de carregamento.
         if (onProgress) {
             const token = localStorage.getItem('teto_falso_token');
-            const send = (tk) => new Promise((resolve, reject) => {
+            const send = (tk, retried = false) => new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.open(method, `${API_URL}${endpoint}`);
                 if (tk) xhr.setRequestHeader('Authorization', `Bearer ${tk}`);
@@ -336,8 +336,13 @@ const api = {
                     let data = {};
                     try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch { /* resposta não-JSON */ }
                     if (xhr.status === 401) {
+                        if (retried) {
+                            clearAuthAndRedirect();
+                            reject(new Error('Sessão expirada. Faça login novamente.'));
+                            return;
+                        }
                         tryRefreshToken().then(() => {
-                            send(localStorage.getItem('teto_falso_token')).then(resolve).catch(reject);
+                            send(localStorage.getItem('teto_falso_token'), true).then(resolve).catch(reject);
                         }).catch(() => {
                             clearAuthAndRedirect();
                             reject(new Error('Sessão expirada. Faça login novamente.'));
@@ -353,6 +358,9 @@ const api = {
                     else reject(new Error(data.error || 'Upload failed'));
                 };
                 xhr.onerror = () => reject(new Error('Erro de rede ao enviar o ficheiro'));
+                xhr.onabort = () => reject(new Error('Envio do ficheiro cancelado'));
+                xhr.ontimeout = () => reject(new Error('Tempo esgotado ao enviar o ficheiro'));
+                xhr.timeout = 10 * 60 * 1000;
                 xhr.send(formData);
             });
             return send(token);
@@ -444,9 +452,11 @@ function showError(message) {
     showToast(message, 'error');
 }
 
-function showSuccess(message) {
+function showSuccess(message, reload = true) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-sucesso-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
     overlay.innerHTML = `
         <div class="modal-sucesso-box">
             <div class="modal-sucesso-icon">
@@ -461,10 +471,33 @@ function showSuccess(message) {
     // Inserir mensagem como textContent para evitar XSS
     overlay.querySelector('.modal-sucesso-msg').textContent = message;
     document.body.appendChild(overlay);
-    overlay.querySelector('#modalSucessoOk').addEventListener('click', () => {
+
+    const btn = overlay.querySelector('#modalSucessoOk');
+    btn.focus();
+
+    const cleanup = () => {
         overlay.remove();
-        window.location.reload();
-    });
+        document.removeEventListener('keydown', keydownHandler);
+        clearTimeout(autoDismiss);
+    };
+
+    const handleOk = () => {
+        cleanup();
+        if (reload) window.location.reload();
+    };
+
+    btn.addEventListener('click', handleOk);
+
+    const keydownHandler = (e) => {
+        if (e.key === 'Escape') {
+            cleanup();
+        }
+    };
+    document.addEventListener('keydown', keydownHandler);
+
+    const autoDismiss = setTimeout(() => {
+        handleOk();
+    }, 4000);
 }
 
 function formatCurrency(value) {

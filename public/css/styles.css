@@ -1946,16 +1946,10 @@ body.page-login .footer {
 
 /* ---------- QUADRO 2D (ROLAGEM AUTOMÁTICA) ---------- */
 .pf-board {
-  max-height: 64vh;
-  overflow: auto;
-  overscroll-behavior: contain;
+  width: 100%;
   border-radius: var(--radius-2xl);
   padding: 1.25rem;
-  background: rgba(15, 23, 42, 0.03);
-  border: 1px solid var(--light-200);
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary-light) var(--light);
-  cursor: grab;
+  background: transparent;
   outline: none;
 }
 
@@ -1982,11 +1976,9 @@ body.page-login .footer {
 
 .pf-board-inner {
   display: grid;
-  grid-template-columns: repeat(4, 300px);
-  gap: 1.25rem;
-  width: max-content;
-  min-width: 100%;
-  padding-bottom: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+  width: 100%;
 }
 
 .pf-card {
@@ -2302,13 +2294,12 @@ body.page-login .footer {
   }
 
   .pf-board {
-    max-height: 60vh;
     padding: 0.75rem;
   }
 
   .pf-board-inner {
-    grid-template-columns: repeat(2, 270px);
-    gap: 0.9rem;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.5rem;
   }
 
   .pf-cta {
@@ -2326,12 +2317,12 @@ body.page-login .footer {
 
 @media (max-width: 480px) {
   .pf-board {
-    max-height: 58vh;
+    padding: 0.5rem;
   }
 
   .pf-board-inner {
-    grid-template-columns: repeat(2, 250px);
-    gap: 0.75rem;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
   }
 
   .pf-media-wrap {
