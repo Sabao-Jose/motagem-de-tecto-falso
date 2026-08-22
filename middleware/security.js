@@ -43,8 +43,9 @@ const securityMiddleware = {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        mediaSrc: ["'self'", "https:", "blob:"],
         connectSrc: ["'self'"],
       },
     },
@@ -53,21 +54,23 @@ const securityMiddleware = {
 
   cors: cors({
     origin: function (origin, callback) {
-      // Em producao, valida contra lista de origens permitidas
+      // Requisicoes SEM Origin (mesma origem, curl, health checks, apps moveis)
+      // sao sempre permitidas - navegadores so enviam Origin em cross-origin
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Lista de origens permitidas; vazia = permitir todas
       const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
-      
-      // Permitir requests sem origin (mobile apps, Postman, etc)
-      if (!origin && NODE_ENV === 'development') {
+
+      if (allowedOrigins.length === 0 || allowedOrigins.includes('*')) {
         return callback(null, true);
       }
-      
-      if (allowedOrigins.length === 0) {
-        return callback(null, true);
-      }
-      
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.warn(`[SECURITY] CORS: origem bloqueada: ${origin}`);
         callback(new Error('Origem nao permitida pelo CORS'));
       }
     },
